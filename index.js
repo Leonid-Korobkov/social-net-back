@@ -11,10 +11,11 @@ app.use(logger('dev'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
-app.set('ц engine', 'jade')
+app.set('view engine', 'jade')
 
 // Монтирование статических файлов (картинки и тд)
 app.use('/uploads', express.static('uploads'))
+
 // Монтирование маршрутов по пути api
 app.use('/api', require('./routes'))
 
