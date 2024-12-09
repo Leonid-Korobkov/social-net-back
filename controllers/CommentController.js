@@ -1,10 +1,9 @@
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-const { ObjectId } = require('mongodb')
+const { prisma } = require('../prisma/prisma-client')
 
 const CommentController = {
   async createComment (req, res) {
-    const { content, postId } = req.body
+    let { content, postId } = req.body
+    postId = parseInt(postId)
     const userId = req.user.userId
 
     if (!content || !postId) {
@@ -28,18 +27,13 @@ const CommentController = {
   },
 
   async deleteComment (req, res) {
-    const { id } = req.params
+    let { id } = req.params
+    id = parseInt(id)
     const userId = req.user.userId
-
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Некорректный ID поста' })
-    }
-
-    const objId = new ObjectId(id)
 
     try {
       const comment = await prisma.comment.findUnique({
-        where: { id: objId }
+        where: { id: id }
       })
 
       if (!comment) {

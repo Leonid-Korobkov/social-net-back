@@ -1,10 +1,8 @@
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-const { ObjectId } = require('mongodb')
+const { prisma } = require('../prisma/prisma-client')
 
 const PostController = {
   async createPost (req, res) {
-    const { content, title } = req.body
+    const { content } = req.body
     const userId = req.user.userId
 
     if (!content) {
@@ -31,7 +29,7 @@ const PostController = {
 
     try {
       const posts = await prisma.post.findMany({
-        where: { authorId: userId },
+        // where: { authorId: userId },
         include: {
           likes: true,
           author: true,
@@ -54,22 +52,17 @@ const PostController = {
     }
   },
   async getPostById (req, res) {
-    const { id } = req.params
+    let { id } = req.params
+    id = parseInt(id)
     const userId = req.user.userId
 
     try {
-      if (!ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Некорректный ID поста' })
-      }
-
-      const objId = new ObjectId(id)
-
       const post = await prisma.post.findUnique({
-        where: { id: objId },
+        where: { id: id },
         include: {
           comments: {
             include: {
-              user: true
+              User: true
             }
           },
           likes: true,
@@ -93,17 +86,12 @@ const PostController = {
     }
   },
   async deletePost (req, res) {
-    const { id } = req.params
+    let { id } = req.params
+    id = parseInt(id)
     const userId = req.user.userId
 
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Некорректный ID поста' })
-    }
-
-    const objId = new ObjectId(id)
-
     const post = await prisma.post.findUnique({
-      where: { id: objId }
+      where: { id: id }
     })
 
     if (!post) {

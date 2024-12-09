@@ -1,6 +1,4 @@
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-const { ObjectId } = require('mongodb')
+const { prisma } = require('../prisma/prisma-client')
 
 const FollowController = {
   async followUser (req, res) {

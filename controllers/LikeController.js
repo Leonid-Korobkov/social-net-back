@@ -1,10 +1,9 @@
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-const { ObjectId } = require('mongodb')
+const { prisma } = require('../prisma/prisma-client')
 
 const LikeController = {
   async likePost (req, res) {
-    const { postId } = req.body
+    let { postId } = req.body
+    postId = parseInt(postId)
     const userId = req.user.userId
 
     if (!postId) {
@@ -38,7 +37,8 @@ const LikeController = {
   },
 
   async unlikePost (req, res) {
-    const { postId } = req.body
+    let { postId } = req.body
+    postId = parseInt(postId)
     const userId = req.user.userId
 
     if (!postId) {
@@ -47,16 +47,10 @@ const LikeController = {
         .json({ error: 'Лайк еще не поставлен, чтобы его убирать' })
     }
 
-    if (!ObjectId.isValid(postId)) {
-      return res.status(400).json({ error: 'Некорректный ID поста' })
-    }
-
-    const objId = new ObjectId(postId)
-
     try {
       const existingLike = await prisma.like.findFirst({
         where: {
-          postId: objId,
+          postId: postId,
           userId
         }
       })
@@ -66,7 +60,7 @@ const LikeController = {
       }
 
       const deletedLike = await prisma.like.deleteMany({
-        where: { postId: objId, userId }
+        where: { postId: postId, userId }
       })
 
       res.json({ message: 'Лайк успешно удален', deletedLike })

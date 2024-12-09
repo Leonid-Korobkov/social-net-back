@@ -1,13 +1,10 @@
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
+const { prisma } = require('../prisma/prisma-client')
 
 const bcrypt = require('bcryptjs')
 const jdenticon = require('jdenticon')
 const fs = require('fs')
 const path = require('path')
 const jwt = require('jsonwebtoken')
-const { ObjectId } = require('mongodb')
-require('dotenv').config()
 
 const UserController = {
   async register (req, res) {
@@ -78,19 +75,14 @@ const UserController = {
   },
 
   async getUserById (req, res) {
-    const { id } = req.params // ID из параметров маршрута
+    let { id } = req.params // ID из параметров маршрута
     const userId = req.user.userId // ID текущего пользователя
+    id = parseInt(id)
 
     try {
-      if (!ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Некорректный ID пользователя' })
-      }
-
-      const objId = new ObjectId(id)
-
       // Ищем пользователя в базе
       const user = await prisma.user.findUnique({
-        where: { id: objId },
+        where: { id },
         include: {
           followers: true,
           following: true
@@ -104,7 +96,7 @@ const UserController = {
       // Проверяем, подписан ли текущий пользователь на данного
       const isFollowing = await prisma.follows.findFirst({
         where: {
-          AND: [{ followerId: userId }, { followingId: objId }]
+          AND: [{ followerId: userId }, { followingId: id }]
         }
       })
 
@@ -117,8 +109,9 @@ const UserController = {
   },
 
   async updateUser (req, res) {
-    const { id } = req.params
+    let { id } = req.params
     const { name, email, bio, location, dateOfBirth } = req.body
+    id = parseInt(id)
 
     let filePath
 
@@ -129,18 +122,9 @@ const UserController = {
       return res.status(403).json({ error: 'Forbidden' })
     }
     try {
-      // Проверяем, является ли ID валидным ObjectId для mongodb
-      if (!ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Некорректный ID пользователя' })
-      }
-
-      // Преобразуем id в ObjectId для поиска
-      const objId = new ObjectId(id)
-
       if (email) {
-        const isExistUser = await prisma.user.findFirst({ where: { email } })
-
-        if (isExistUser && isExistUser.id !== objId) {
+        const isExistUser = await prisma.user.findFirst({ where: { email } })``
+        if (isExistUser && isExistUser.id !== id) {
           return res
             .status(400)
             .json({ error: 'Пользователь с таким email уже существует' })
@@ -148,7 +132,7 @@ const UserController = {
       }
 
       const user = await prisma.user.update({
-        where: { id: objId },
+        where: { id: id },
         data: {
           name: name || undefined,
           email: email || undefined,
