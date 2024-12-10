@@ -27,7 +27,12 @@ router.post('/register', UserController.register)
 router.post('/login', UserController.login)
 router.get('/current', authenticateToken, UserController.currentUser)
 router.get('/users/:id', authenticateToken, UserController.getUserById)
-router.put('/users/:id', authenticateToken, UserController.updateUser)
+router.put(
+  '/users/:id',
+  authenticateToken,
+  upload.single('avatar'),
+  UserController.updateUser
+)
 
 // Маршрутизация для постов
 router.post('/posts', authenticateToken, PostController.createPost)

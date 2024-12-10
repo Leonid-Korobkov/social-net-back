@@ -28,11 +28,17 @@ const PostController = {
     const userId = req.user.userId
 
     try {
+      // Получаем посты с данными о подписках
       const posts = await prisma.post.findMany({
-        // where: { authorId: userId },
         include: {
           likes: true,
-          author: true,
+          author: {
+            include: {
+              followers: {
+                where: { followerId: userId }
+              }
+            }
+          },
           comments: true
         },
         orderBy: {
@@ -40,9 +46,11 @@ const PostController = {
         }
       })
 
+      // Добавляем поля isFollowing и likedByUser
       const postsWithLikesUserInfo = posts.map(post => ({
         ...post,
-        likedByUser: post.likes.some(like => like.userId === userId)
+        likedByUser: post.likes.some(like => like.userId === userId),
+        isFollowing: post.author.followers.length > 0 // Если пользователь найден среди подписчиков
       }))
 
       res.json(postsWithLikesUserInfo)
@@ -52,13 +60,12 @@ const PostController = {
     }
   },
   async getPostById (req, res) {
-    let { id } = req.params
-    id = parseInt(id)
+    const { id } = req.params
     const userId = req.user.userId
 
     try {
       const post = await prisma.post.findUnique({
-        where: { id: id },
+        where: { id: parseInt(id) },
         include: {
           comments: {
             include: {
@@ -66,22 +73,29 @@ const PostController = {
             }
           },
           likes: true,
-          author: true
+          author: {
+            include: {
+              followers: {
+                where: { followerId: userId } // Проверяем подписку в том же запросе
+              }
+            }
+          }
         }
       })
 
       if (!post) {
-        return res.status(404).json({ error: 'Пост не найден' })
+        return res.status(404).json({ error: 'Пост не найден' })
       }
 
       const postWithLikesUserInfo = {
         ...post,
-        likedByUser: post.likes.some(like => like.userId === userId)
+        likedByUser: post.likes.some(like => like.userId === userId),
+        isFollowing: post.author.followers.length > 0 // Проверяем, есть ли текущий пользователь среди подписчиков
       }
 
       res.json(postWithLikesUserInfo)
     } catch (error) {
-      console.error('Error in getAllPosts', error)
+      console.error('Error in getPostById', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
