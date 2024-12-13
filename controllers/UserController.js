@@ -121,13 +121,28 @@ const UserController = {
     if (id !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
+
     try {
       if (email) {
-        const isExistUser = await prisma.user.findFirst({ where: { email } })``
+        const isExistUser = await prisma.user.findFirst({
+          where: { id: req.user.userId }
+        })
+
         if (isExistUser && isExistUser.id !== id) {
-          return res
-            .status(400)
-            .json({ error: 'Пользователь с таким email уже существует' })
+          return res.status(400).json({
+            error: 'Пользователь не найден'
+          })
+        }
+
+        const existingEmail = await prisma.user.findFirst({
+          where: { email }
+        })
+
+        if (existingEmail) {
+          return res.status(400).json({
+            error:
+              'Пользователь с таким email уже существует. Не получилось обновить данные'
+          })
         }
       }
 
