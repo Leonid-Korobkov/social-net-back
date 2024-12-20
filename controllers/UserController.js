@@ -85,13 +85,25 @@ const UserController = {
         where: { id },
         include: {
           followers: true,
-          following: true
+          following: true,
+          posts: {
+            include: {
+              author: true,
+              likes: true,
+              comments: true
+            }
+          }
         }
       })
 
       if (!user) {
         return res.status(404).json({ error: 'Пользователь не найден' })
       }
+
+      const userWithLikesInfo = user.posts.map(post => ({
+        ...post,
+        likedByUser: post.likes.some(like => like.userId === userId)
+      }))
 
       // Проверяем, подписан ли текущий пользователь на данного
       const isFollowing = await prisma.follows.findFirst({
@@ -101,7 +113,11 @@ const UserController = {
       })
 
       // Возвращаем данные пользователя и статус подписки
-      res.json({ ...user, isFollowing: Boolean(isFollowing) })
+      res.json({
+        ...user,
+        isFollowing: Boolean(isFollowing),
+        posts: userWithLikesInfo
+      })
     } catch (error) {
       console.error('Error in getUserById', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
