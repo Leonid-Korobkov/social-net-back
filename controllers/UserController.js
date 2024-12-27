@@ -1,13 +1,13 @@
 const { prisma } = require('../prisma/prisma-client')
-
 const bcrypt = require('bcryptjs')
 const jdenticon = require('jdenticon')
 const fs = require('fs')
 const path = require('path')
 const jwt = require('jsonwebtoken')
+const cloudinary = require('cloudinary').v2
 
 const UserController = {
-  async register (req, res) {
+  async register(req, res) {
     const { email, password, name } = req.body
 
     if (!email || !password || !name) {
@@ -25,18 +25,31 @@ const UserController = {
 
       const hashPassword = await bcrypt.hash(password, 10)
 
-      const size = 200
+      // Генерируем аватар и загружаем его в Cloudinary
+      const size = 400
       const generatedImage = jdenticon.toPng(name, size)
-      const avatarName = `${email}_${Date.now()}.png`
-      const pathToFile = path.join(__dirname, '/../uploads', avatarName)
-      fs.writeFileSync(pathToFile, generatedImage)
+      
+      const result = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            folder: 'social-net',
+            resource_type: 'auto',
+            format: 'webp',
+            transformation: [{ quality: 'auto:best' }]
+          },
+          (error, result) => {
+            if (error) reject(error)
+            else resolve(result)
+          }
+        ).end(generatedImage)
+      })
 
       const user = await prisma.user.create({
         data: {
           email: email,
           password: hashPassword,
           name: name,
-          avatarUrl: `/uploads/${avatarName}`
+          avatarUrl: result.secure_url
         }
       })
 
@@ -47,7 +60,7 @@ const UserController = {
     }
   },
 
-  async login (req, res) {
+  async login(req, res) {
     const { email, password } = req.body
 
     if (!email || !password) {
@@ -74,7 +87,87 @@ const UserController = {
     }
   },
 
-  async getUserById (req, res) {
+  async updateUser(req, res) {
+    let { id } = req.params
+    const { name, email, bio, location, dateOfBirth } = req.body
+    id = parseInt(id)
+    console.log(req.file)
+
+    if (id !== req.user.userId) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    try {
+      if (email) {
+        const isExistUser = await prisma.user.findFirst({
+          where: { id: req.user.userId }
+        })
+
+        if (isExistUser && isExistUser.id !== id) {
+          return res.status(400).json({
+            error: 'Пользователь не найден'
+          })
+        }
+
+        const existingEmail = await prisma.user.findFirst({
+          where: { email }
+        })
+
+        if (existingEmail && existingEmail.id !== id) {
+          return res.status(400).json({
+            error:
+              'Пользователь с таким email уже существует. Не получилось обновить данные'
+          })
+        }
+      }
+
+      const user = await prisma.user.update({
+        where: { id: id },
+        data: {
+          name: name || undefined,
+          email: email || undefined,
+          bio: bio || '',
+          location: location || '',
+          dateOfBirth: dateOfBirth || null,
+          avatarUrl: req.file?.cloudinaryUrl || undefined
+        }
+      })
+      res.json(user)
+    } catch (error) {
+      console.error('Error in updateUser', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+
+  async currentUser(req, res) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        include: {
+          followers: {
+            include: {
+              follower: true
+            }
+          },
+          following: {
+            include: {
+              following: true
+            }
+          },
+          posts: true
+        }
+      })
+      if (!user) {
+        return res.status(404).json({ error: 'Пользователь не найден' })
+      }
+      res.json(user)
+    } catch (error) {
+      console.error('Error in currentUser', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+
+  async getUserById(req, res) {
     let { id } = req.params // ID из параметров маршрута
     const userId = req.user.userId // ID текущего пользователя
     id = parseInt(id)
@@ -120,89 +213,6 @@ const UserController = {
       })
     } catch (error) {
       console.error('Error in getUserById', error)
-      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
-    }
-  },
-
-  async updateUser (req, res) {
-    let { id } = req.params
-    const { name, email, bio, location, dateOfBirth } = req.body
-    id = parseInt(id)
-
-    let filePath
-
-    if (req.file && req.file.path) {
-      filePath = req.file.path
-    }
-    if (id !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' })
-    }
-
-    try {
-      if (email) {
-        const isExistUser = await prisma.user.findFirst({
-          where: { id: req.user.userId }
-        })
-
-        if (isExistUser && isExistUser.id !== id) {
-          return res.status(400).json({
-            error: 'Пользователь не найден'
-          })
-        }
-
-        const existingEmail = await prisma.user.findFirst({
-          where: { email }
-        })
-
-        if (existingEmail) {
-          return res.status(400).json({
-            error:
-              'Пользователь с таким email уже существует. Не получилось обновить данные'
-          })
-        }
-      }
-
-      const user = await prisma.user.update({
-        where: { id: id },
-        data: {
-          name: name || undefined,
-          email: email || undefined,
-          bio: bio || undefined,
-          location: location || undefined,
-          dateOfBirth: dateOfBirth || undefined,
-          avatarUrl: filePath ? `/${filePath}` : undefined
-        }
-      })
-      res.json(user)
-    } catch (error) {
-      console.error('Error in updateUser', error)
-      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
-    }
-  },
-  async currentUser (req, res) {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { id: req.user.userId },
-        include: {
-          followers: {
-            include: {
-              follower: true
-            }
-          },
-          following: {
-            include: {
-              following: true
-            }
-          },
-          posts: true
-        }
-      })
-      if (!user) {
-        return res.status(404).json({ error: 'Пользователь не найден' })
-      }
-      res.json(user)
-    } catch (error) {
-      console.error('Error in currentUser', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   }

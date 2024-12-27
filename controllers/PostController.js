@@ -13,11 +13,12 @@ const PostController = {
       const post = await prisma.post.create({
         data: {
           content,
-          authorId: userId
+          authorId: userId,
+          imageUrl: req.file?.cloudinaryUrl || undefined
         }
       })
 
-      res.json({ message: 'Пост успешно создан', post })
+      res.json(post)
     } catch (error) {
       console.error('Error in createPost', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -104,18 +105,18 @@ const PostController = {
     id = parseInt(id)
     const userId = req.user.userId
 
-    const post = await prisma.post.findUnique({
-      where: { id: id }
-    })
-
-    if (!post) {
-      return res.status(404).json({ error: 'Пост не найден' })
-    }
-    if (post.authorId !== userId) {
-      return res.status(403).json({ error: 'Отказано в доступе' })
-    }
-
     try {
+      const post = await prisma.post.findUnique({
+        where: { id: id }
+      })
+
+      if (!post) {
+        return res.status(404).json({ error: 'Пост не найден' })
+      }
+      if (post.authorId !== userId) {
+        return res.status(403).json({ error: 'Отказано в доступе' })
+      }
+
       const transactions = await prisma.$transaction([
         prisma.comment.deleteMany({ where: { postId: id } }),
         prisma.like.deleteMany({ where: { postId: id } }),
