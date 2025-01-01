@@ -190,7 +190,11 @@ const UserController = {
           posts: {
             include: {
               author: true,
-              likes: true,
+              likes: {
+                include: {
+                  user: true
+                }
+              },
               comments: true
             }
           }
