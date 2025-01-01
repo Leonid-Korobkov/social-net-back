@@ -68,6 +68,30 @@ const LikeController = {
       console.error('Error in unlikePost', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
+  },
+
+  async getLikes (req, res) {
+    const { postId } = req.params
+
+    try {
+      const likes = await prisma.like.findMany({
+        where: { postId: parseInt(postId) },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true
+            }
+          }
+        }
+      })
+
+      return res.json(likes)
+    } catch (error) {
+      console.error('Error in getLikes:', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
   }
 }
 

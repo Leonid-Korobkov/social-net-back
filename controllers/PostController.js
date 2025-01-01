@@ -32,7 +32,11 @@ const PostController = {
       // Получаем посты с данными о подписках
       const posts = await prisma.post.findMany({
         include: {
-          likes: true,
+          likes: {
+            include: {
+              user: true
+            }
+          },
           author: {
             include: {
               followers: {
@@ -70,10 +74,19 @@ const PostController = {
         include: {
           comments: {
             include: {
-              User: true
+              user: true,
+              likes: {
+                include: {
+                  user: true
+                }
+              }
             }
           },
-          likes: true,
+          likes: {
+            include: {
+              user: true
+            }
+          },
           author: {
             include: {
               followers: {
@@ -90,6 +103,10 @@ const PostController = {
 
       const postWithLikesUserInfo = {
         ...post,
+        comments: post.comments.map(comment => ({
+          ...comment,
+          likedByUser: comment.likes.some(like => like.userId === userId)
+        })),
         likedByUser: post.likes.some(like => like.userId === userId),
         isFollowing: post.author.followers.length > 0 // Проверяем, есть ли текущий пользователь среди подписчиков
       }
@@ -128,7 +145,7 @@ const PostController = {
       console.error('Error in deletePost', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
-  }
+  },
 }
 
 module.exports = PostController
