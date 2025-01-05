@@ -173,54 +173,88 @@ const UserController = {
     id = parseInt(id)
 
     try {
-      // Ищем пользователя в базе
-      const user = await prisma.user.findUnique({
-        where: { id },
-        include: {
-          followers: {
-            include: {
-              follower: true
-            }
-          },
-          following: {
-            include: {
-              following: true
-            }
-          },
-          posts: {
-            include: {
-              author: true,
-              likes: {
-                include: {
-                  user: true
-                }
-              },
-              comments: true
+      // Получаем всю необходимую информацию в одном запросе
+      const [user, currentUserFollowing] = await prisma.$transaction([
+        prisma.user.findUnique({
+          where: { id },
+          include: {
+            followers: {
+              include: {
+                follower: true
+              }
+            },
+            following: {
+              include: {
+                following: true
+              }
+            },
+            posts: {
+              include: {
+                author: true,
+                likes: {
+                  include: {
+                    user: true
+                  }
+                },
+                comments: true
+              }
             }
           }
-        }
-      })
+        }),
+        // Получаем список всех пользователей, на которых подписан текущий пользователь
+        prisma.follows.findMany({
+          where: {
+            followerId: userId
+          },
+          select: {
+            followingId: true
+          }
+        })
+      ])
 
       if (!user) {
         return res.status(404).json({ error: 'Пользователь не найден' })
       }
 
+      // Создаем Set для быстрого поиска
+      const followingIds = new Set(currentUserFollowing.map(f => f.followingId))
+
+      // Обрабатываем подписчиков
+      const followersWithInfo = user.followers.map(f => {
+        if (!f.follower) return f
+        return {
+          ...f,
+          follower: {
+            ...f.follower,
+            isFollowing: followingIds.has(f.follower.id)
+          }
+        }
+      })
+
+      // Обрабатываем подписки
+      const followingWithInfo = user.following.map(f => {
+        if (!f.following) return f
+        return {
+          ...f,
+          following: {
+            ...f.following,
+            isFollowing: followingIds.has(f.following.id)
+          }
+        }
+      })
+
+      // Обрабатываем лайки постов
       const userWithLikesInfo = user.posts.map(post => ({
         ...post,
         likedByUser: post.likes.some(like => like.userId === userId)
       }))
 
-      // Проверяем, подписан ли текущий пользователь на данного
-      const isFollowing = await prisma.follows.findFirst({
-        where: {
-          AND: [{ followerId: userId }, { followingId: id }]
-        }
-      })
-
       // Возвращаем данные пользователя и статус подписки
       res.json({
         ...user,
-        isFollowing: Boolean(isFollowing),
+        isFollowing: followingIds.has(id),
+        followers: followersWithInfo,
+        following: followingWithInfo,
         posts: userWithLikesInfo
       })
     } catch (error) {
