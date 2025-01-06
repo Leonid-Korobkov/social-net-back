@@ -15,6 +15,21 @@ Backend **Zling** отвечает за следующие задачи:
 - Поддержка реального времени (если применимо).
 - Обработка ошибок и безопасное взаимодействие с клиентом.
 
+## Оптимизации производительности
+
+В приложении реализованы следующие оптимизации:
+
+1. **Оптимизация базы данных:**
+
+   - Индексы для часто используемых полей
+   - Пагинация для больших наборов данных
+   - Оптимизированные запросы с включением связанных данных
+
+2. **Оптимизация изображений:**
+   - Автоматическое сжатие загружаемых изображений
+   - Конвертация в WebP формат
+   - Хранение в Cloudinary с автоматической оптимизацией
+
 ## Используемые технологии
 
 - **Node.js**: Среда выполнения для JavaScript.
@@ -24,6 +39,7 @@ Backend **Zling** отвечает за следующие задачи:
 - **Express.js**: Минималистичный веб-фреймворк для Node.js.
 - **JWT**: JSON Web Tokens для аутентификации.
 - **bcrypt**: Для хэширования паролей.
+- **Cloudinary**: Для работы с изображениями.
 
 ## Структура проекта
 
@@ -58,6 +74,10 @@ Backend **Zling** отвечает за следующие задачи:
    DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/DATABASE_NAME
    JWT_SECRET=your_jwt_secret
    PORT=5000
+   REDIS_URL=redis://localhost:6379
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
    ```
 
 4. **Инициализация базы данных**:
@@ -65,6 +85,7 @@ Backend **Zling** отвечает за следующие задачи:
    С помощью Prisma выполните следующие команды:
 
    - Синхронизация модели базы данных:
+
      ```bash
      npx prisma migrate dev
      ```
@@ -76,7 +97,13 @@ Backend **Zling** отвечает за следующие задачи:
 
    После выполнения этих шагов база данных будет готова к использованию.
 
-5. **Запуск сервера**:
+5. **Запуск Redis**:
+
+   ```bash
+   redis-server
+   ```
+
+6. **Запуск сервера**:
 
    ```bash
    npm run dev
@@ -109,6 +136,8 @@ Backend **Zling** отвечает за следующие задачи:
 - [Документация Prisma](https://www.prisma.io/docs/)
 - [PostgreSQL](https://www.postgresql.org/)
 - [Express.js](https://expressjs.com/)
+- [Redis](https://redis.io/)
+- [Cloudinary](https://cloudinary.com/)
 
 Для фронтенд-части проекта посетите репозиторий [social-net-front](https://github.com/Leonid-Korobkov/social-net-front).
 

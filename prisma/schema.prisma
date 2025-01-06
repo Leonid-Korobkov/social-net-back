@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
   // directUrl = env("DIRECT_URL")
 }
 
@@ -25,6 +25,9 @@ model User {
   followers   Follows[]     @relation("following")
   following   Follows[]     @relation("followers")
   commentLike CommentLike[]
+
+  @@index([email])
+  @@index([name])
 }
 
 model Follows {
@@ -33,17 +36,25 @@ model Follows {
   followerId  Int?
   following   User? @relation("following", fields: [followingId], references: [id])
   followingId Int?
+
+  @@index([followerId])
+  @@index([followingId])
 }
 
 model Post {
-  id        Int       @id @default(autoincrement())
-  title     String?
-  content   String
-  author    User      @relation(fields: [authorId], references: [id])
-  authorId  Int
-  likes     Like[]
-  comments  Comment[]
-  createdAt DateTime  @default(now())
+  id         Int       @id @default(autoincrement())
+  title      String?
+  content    String
+  author     User      @relation(fields: [authorId], references: [id])
+  authorId   Int
+  likes      Like[]
+  comments   Comment[]
+  viewCount  Int       @default(0)
+  shareCount Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([authorId])
+  @@index([createdAt])
 }
 
 model Like {
@@ -53,6 +64,10 @@ model Like {
   post      Post?    @relation(fields: [postId], references: [id])
   postId    Int?
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([postId])
+  @@index([createdAt])
 }
 
 model Comment {
@@ -64,6 +79,10 @@ model Comment {
   userId    Int?
   likes     CommentLike[]
   createdAt DateTime      @default(now())
+
+  @@index([postId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model CommentLike {
@@ -75,4 +94,7 @@ model CommentLike {
   createdAt DateTime @default(now())
 
   @@unique([commentId, userId])
+  @@index([userId])
+  @@index([commentId])
+  @@index([createdAt])
 }
