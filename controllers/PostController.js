@@ -27,10 +27,20 @@ const PostController = {
 
   async getAllPosts (req, res) {
     const userId = req.user.userId
+    const page = parseInt(req.query.page)
+    const limit = parseInt(req.query.limit)
+    const skip = (page - 1) * limit
+
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
     try {
-      // Получаем посты с данными о подписках
+      // Получаем общее количество постов
+      const totalPosts = await prisma.post.count()
+
+      // Получаем посты с пагинацией
       const posts = await prisma.post.findMany({
+        skip: skip ? skip : 0,
+        take: limit ? limit : undefined,
         include: {
           likes: {
             include: {
@@ -55,8 +65,12 @@ const PostController = {
       const postsWithLikesUserInfo = posts.map(post => ({
         ...post,
         likedByUser: post.likes.some(like => like.userId === userId),
-        isFollowing: post.author.followers.length > 0 // Если пользователь найден среди подписчиков
+        isFollowing: post.author.followers.length > 0
       }))
+
+      // Устанавливаем заголовок с общим количеством постов
+      res.setHeader('x-total-count', totalPosts.toString())
+      res.setHeader('Access-Control-Expose-Headers', 'x-total-count')
 
       res.json(postsWithLikesUserInfo)
     } catch (error) {
