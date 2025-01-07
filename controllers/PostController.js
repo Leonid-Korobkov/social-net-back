@@ -31,8 +31,6 @@ const PostController = {
     const limit = parseInt(req.query.limit)
     const skip = (page - 1) * limit
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
     try {
       // Получаем общее количество постов
       const totalPosts = await prisma.post.count()
