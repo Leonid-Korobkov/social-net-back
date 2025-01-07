@@ -43,9 +43,12 @@ const CommentController = {
         return res.status(403).json({ error: 'Отказано в доступе' })
       }
 
-      const deletedComment = await prisma.comment.delete({ where: { id } })
+      const transactions = await prisma.$transaction([
+        prisma.commentLike.deleteMany({ where: { commentId: id } }),
+        prisma.comment.delete({ where: { id } })
+      ])
 
-      res.json({ message: 'Комментарий успешно удален', deletedComment })
+      res.json({ message: 'Комментарий успешно удален', transactions })
     } catch (error) {
       console.error('Error in deleteComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
