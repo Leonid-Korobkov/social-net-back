@@ -22,13 +22,29 @@ cloudinary.config({
 })
 
 // Middleware для кэширования
-// const cacheControl = (req, res, next) => {
-//   // Кэшируем GET запросы на 5 минут
-//   if (req.method === 'GET') {
-//     res.set('Cache-Control', 'public, max-age=300') // 5 минут
-//   }
-//   next()
-// }
+const cacheControl = (req, res, next) => {
+  // Для GET запросов к статическим ресурсам (изображения, аватары)
+  if (
+    req.method === 'GET' &&
+    (req.url.includes('/uploads/') || req.url.includes('cloudinary'))
+  ) {
+    res.set('Cache-Control', 'public, max-age=31536000') // 1 год
+  } else if (req.method === 'GET') {
+    // Для GET запросов к API данных
+    res.set('Cache-Control', 'no-cache, must-revalidate, max-age=0')
+    res.set('Pragma', 'no-cache')
+    res.set('Expires', '0')
+  } else {
+    // Для POST, PUT, DELETE запросов
+    res.set(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate'
+    )
+    res.set('Pragma', 'no-cache')
+    res.set('Expires', '0')
+  }
+  next()
+}
 
 // Middleware для оптимизации изображений
 const optimizeImage = async (req, res, next) => {
@@ -79,7 +95,7 @@ const upload = multer({
 })
 
 // Применяем middleware кэширования для всех маршрутов
-// router.use(cacheControl)
+router.use(cacheControl)
 
 // Маршрутизация для пользователя
 router.post('/register', UserController.register)
