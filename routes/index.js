@@ -95,7 +95,7 @@ const upload = multer({
 })
 
 // Применяем middleware кэширования для всех маршрутов
-router.use(cacheControl)
+// router.use(cacheControl)
 
 // Маршрутизация для пользователя
 router.post('/register', UserController.register)
