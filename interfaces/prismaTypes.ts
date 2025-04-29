@@ -32,6 +32,8 @@ export interface Post {
   content: string
   title?: string
   author: User
+  viewCount: number
+  shareCount: number
   authorId: number
   likes: Like[]
   comments: Comment[]

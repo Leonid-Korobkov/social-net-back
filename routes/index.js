@@ -10,7 +10,8 @@ const {
   CommentController,
   LikeController,
   FollowController,
-  CommentLikeController
+  CommentLikeController,
+  SearchController
 } = require('../controllers')
 const { authenticateToken } = require('../middleware/auth')
 
@@ -102,6 +103,11 @@ router.post('/register', UserController.register)
 router.post('/login', UserController.login)
 router.get('/current', authenticateToken, UserController.currentUser)
 router.get('/users/:id', authenticateToken, UserController.getUserById)
+router.get(
+  '/users/:userId/posts',
+  authenticateToken,
+  PostController.getPostsByUserId
+)
 router.put(
   '/users/:id',
   authenticateToken,
@@ -121,6 +127,11 @@ router.post(
 router.get('/posts', authenticateToken, PostController.getAllPosts)
 router.get('/posts/:id', authenticateToken, PostController.getPostById)
 router.delete('/posts/:id', authenticateToken, PostController.deletePost)
+router.get(
+  '/posts/:postId/comments',
+  authenticateToken,
+  CommentController.getComments
+)
 
 // Маршрутизация для комментариев
 router.post('/comments', authenticateToken, CommentController.createComment)
@@ -129,10 +140,16 @@ router.delete(
   authenticateToken,
   CommentController.deleteComment
 )
+router.get(
+  '/comments/:commentId/likes',
+  authenticateToken,
+  CommentController.getCommentLikes
+)
 
 // Маршрутизация для лайков
 router.post('/like', authenticateToken, LikeController.likePost)
 router.delete('/unlike', authenticateToken, LikeController.unlikePost)
+router.get('/likes/:postId', authenticateToken, LikeController.getLikes)
 
 // Маршрутизация для подписок
 router.post('/follow', authenticateToken, FollowController.followUser)
@@ -149,5 +166,8 @@ router.get(
   authenticateToken,
   CommentLikeController.getLikes
 )
+
+// Маршрутизация для поиска
+router.get('/search', authenticateToken, SearchController.search)
 
 module.exports = router

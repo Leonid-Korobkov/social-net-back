@@ -53,6 +53,83 @@ const CommentController = {
       console.error('Error in deleteComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
+  },
+
+  async getComments (req, res) {
+    const { postId } = req.params
+    const userId = req.user.userId
+    const page = parseInt(req.query.page)
+    const limit = parseInt(req.query.limit)
+    const skip = (page - 1) * limit
+
+    try {
+      const totalComments = await prisma.comment.count({
+        where: { postId: parseInt(postId) }
+      })
+
+      const comments = await prisma.comment.findMany({
+        skip: skip || 0,
+        take: limit || undefined,
+        where: { postId: parseInt(postId) },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true
+            }
+          },
+          likes: {
+            include: {
+              user: true
+            }
+          }
+        }
+      })
+
+      const commentsWithLikeInfo = comments.map(({ likes, ...comment }) => ({
+        ...comment,
+        likedByUser: likes.some(like => like.userId === userId),
+        likeCount: likes.length
+      }))
+
+      res.setHeader('x-total-count', totalComments.toString())
+      res.setHeader('Access-Control-Expose-Headers', 'x-total-count')
+
+      const result = {
+        data: commentsWithLikeInfo,
+        total: totalComments
+      }
+
+      res.json(result)
+    } catch (error) {
+      console.error('Error in getComments:', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+
+  async getCommentLikes (req, res) {
+    const { commentId } = req.params
+
+    try {
+      const likes = await prisma.commentLike.findMany({
+        where: { commentId: parseInt(commentId) },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true
+            }
+          }
+        }
+      })
+
+      return res.json(likes)
+    } catch (error) {
+      console.error('Error in getCommentLikes:', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
   }
 }
 

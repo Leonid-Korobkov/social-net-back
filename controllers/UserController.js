@@ -53,7 +53,10 @@ const UserController = {
         }
       })
 
-      res.json(user)
+      res.json({
+        id: user.id,
+        message: 'Пользователь успешно зарегистрирован'
+      })
     } catch (error) {
       console.error('Error in register', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -83,7 +86,7 @@ const UserController = {
       res.json({ token })
     } catch (error) {
       console.error('Error in login', error)
-      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере. Не удалось подключится к базе данных' })
     }
   },
 
@@ -96,6 +99,8 @@ const UserController = {
     if (id !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
+
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
     try {
       if (email) {
@@ -140,22 +145,36 @@ const UserController = {
   },
 
   async currentUser(req, res) {
+
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.user.userId },
         include: {
+          password: false,
           followers: {
             include: {
-              follower: true
+              follower: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true
+                }
+              }
             }
           },
           following: {
             include: {
-              following: true
+              following: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true
+                }
+              }
             }
           },
-          posts: true
-        }
+          posts: false
+        },
       })
       if (!user) {
         return res.status(404).json({ error: 'Пользователь не найден' })
@@ -174,31 +193,33 @@ const UserController = {
 
     try {
       // Получаем всю необходимую информацию в одном запросе
-      const [user, currentUserFollowing] = await prisma.$transaction([
+      const [user, currentUserFollowing, postCount] = await prisma.$transaction([
         prisma.user.findUnique({
           where: { id },
           include: {
             followers: {
               include: {
-                follower: true
+                follower: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatarUrl: true
+                  }
+                }
               }
             },
             following: {
               include: {
-                following: true
+                following: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatarUrl: true
+                  }
+                }
               }
             },
-            posts: {
-              include: {
-                author: true,
-                likes: {
-                  include: {
-                    user: true
-                  }
-                },
-                comments: true
-              }
-            }
+            posts: false
           }
         }),
         // Получаем список всех пользователей, на которых подписан текущий пользователь
@@ -208,6 +229,12 @@ const UserController = {
           },
           select: {
             followingId: true
+          }
+        }),
+        // Получаем количество постов пользователя
+        prisma.post.count({
+          where: {
+            authorId: id
           }
         })
       ])
@@ -243,19 +270,13 @@ const UserController = {
         }
       })
 
-      // Обрабатываем лайки постов
-      const userWithLikesInfo = user.posts.map(post => ({
-        ...post,
-        likedByUser: post.likes.some(like => like.userId === userId)
-      }))
-
       // Возвращаем данные пользователя и статус подписки
       res.json({
         ...user,
         isFollowing: followingIds.has(id),
         followers: followersWithInfo,
         following: followingWithInfo,
-        posts: userWithLikesInfo
+        postCount
       })
     } catch (error) {
       console.error('Error in getUserById', error)

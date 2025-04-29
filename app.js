@@ -18,6 +18,11 @@ app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
 app.set('view engine', 'jade')
 
+// Глобальная задержка на 1 секунду для всех запросов
+// app.use((req, res, next) => {
+//   setTimeout(next, 1000)
+// })
+
 // Монтирование статических файлов (картинки и тд)
 app.use('/uploads', express.static('uploads'))
 

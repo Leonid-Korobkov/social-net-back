@@ -15,6 +15,9 @@ const PostController = {
           content,
           authorId: userId,
           imageUrl: req.file?.cloudinaryUrl || undefined
+        },
+        include: {
+          author: true
         }
       })
 
@@ -24,7 +27,6 @@ const PostController = {
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
-
   async getAllPosts (req, res) {
     const userId = req.user.userId
     const page = parseInt(req.query.page)
@@ -56,23 +58,105 @@ const PostController = {
         },
         orderBy: {
           createdAt: 'desc'
-        }
-      })
+        },
+      },
+    )
 
       // Добавляем поля isFollowing и likedByUser
-      const postsWithLikesUserInfo = posts.map(post => ({
+      const postsWithLikesUserInfo = posts.map(({ likes, author, comments, ...post }) => (
+      {
         ...post,
-        likedByUser: post.likes.some(like => like.userId === userId),
-        isFollowing: post.author.followers.length > 0
+        author: {
+          id: author.id,
+          name: author.name,
+          avatarUrl: author.avatarUrl
+        },
+        likedByUser: likes.some(like => like.userId === userId),
+        isFollowing: author.followers.length > 0,
+        likeCount: likes.length,
+        commentCount: comments.length
       }))
 
       // Устанавливаем заголовок с общим количеством постов
       res.setHeader('x-total-count', totalPosts.toString())
       res.setHeader('Access-Control-Expose-Headers', 'x-total-count')
 
-      res.json(postsWithLikesUserInfo)
+      const result = {
+        data: postsWithLikesUserInfo,
+        total: totalPosts,
+      }
+
+      res.json(result)
     } catch (error) {
       console.error('Error in getAllPosts', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+  async getPostsByUserId (req, res) {
+    const params = req.params
+    const userId = parseInt(params.userId)
+    const page = parseInt(req.query.page)
+    const limit = parseInt(req.query.limit)
+    const skip = (page - 1) * limit
+
+    try {
+      const totalPosts = await prisma.post.count({
+        where: { authorId: userId },
+      })
+
+      // Получаем посты с пагинацией
+      const posts = await prisma.post.findMany({
+        skip: skip ? skip : 0,
+        take: limit ? limit : undefined,
+        where: { authorId: userId },
+        include: {
+          likes: {
+            include: {
+              user: true
+            }
+          },
+          author: {
+            include: {
+              followers: {
+                where: { followerId: userId }
+              }
+            }
+          },
+          comments: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+      },
+    )
+
+      // Добавляем поля isFollowing и likedByUser
+      const postsWithLikesUserInfo = posts.map(({ likes, author, comments, ...post }) => (
+      {
+        ...post,
+        author: {
+          id: author.id,
+          name: author.name,
+          avatarUrl: author.avatarUrl
+        },
+        likedByUser: likes.some(like => like.userId === userId),
+        isFollowing: author.followers.length > 0,
+        likeCount: likes.length,
+        commentCount: comments.length
+      }))
+
+      // Устанавливаем заголовок с общим количеством постов
+      res.setHeader('x-total-count', totalPosts.toString())
+      res.setHeader('Access-Control-Expose-Headers', 'x-total-count')
+
+      const result = {
+        data: postsWithLikesUserInfo,
+        total: totalPosts,
+      }
+
+      res.json(result)
+    } catch (error) {
+      console.error('Error in getPostsByUserId', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
@@ -84,25 +168,22 @@ const PostController = {
       const post = await prisma.post.findUnique({
         where: { id: parseInt(id) },
         include: {
-          comments: {
+          likes: {
             include: {
-              user: true,
-              likes: {
-                include: {
-                  user: true
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true
                 }
               }
             }
           },
-          likes: {
-            include: {
-              user: true
-            }
-          },
+          comments: true,
           author: {
             include: {
               followers: {
-                where: { followerId: userId } // Проверяем подписку в том же запросе
+                where: { followerId: userId }
               }
             }
           }
@@ -114,13 +195,21 @@ const PostController = {
       }
 
       const postWithLikesUserInfo = {
-        ...post,
-        comments: post.comments.map(comment => ({
-          ...comment,
-          likedByUser: comment.likes.some(like => like.userId === userId)
-        })),
+        id: post.id,
+        content: post.content,
+        postId: post.postId,
+        userId: post.userId,
+        createdAt: post.createdAt,
+        likeCount: post.likes.length,
+        commentCount: post.comments.length,
+        authorId: post.authorId,
+        author: {
+          id: post.author.id,
+          name: post.author.name,
+          avatarUrl: post.author.avatarUrl
+        },
         likedByUser: post.likes.some(like => like.userId === userId),
-        isFollowing: post.author.followers.length > 0 // Проверяем, есть ли текущий пользователь среди подписчиков
+        isFollowing: post.author.followers.length > 0
       }
 
       res.json(postWithLikesUserInfo)
@@ -131,6 +220,7 @@ const PostController = {
   },
   async deletePost (req, res) {
     let { id } = req.params
+    console.log(id)
     id = parseInt(id)
     const userId = req.user.userId
 
