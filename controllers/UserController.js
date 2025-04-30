@@ -8,19 +8,30 @@ const cloudinary = require('cloudinary').v2
 
 const UserController = {
   async register(req, res) {
-    const { email, password, name } = req.body
+    const { email, password, name, userName} = req.body
 
-    if (!email || !password || !name) {
+    if (!email || !password || !name || !userName) {
       return res.status(400).json({ error: 'Все поля должны быть заполнены' })
     }
 
     try {
-      const isExistUser = await prisma.user.findUnique({ where: { email } })
+      const isExistUserEmail = await prisma.user.findUnique({
+        where: { email }
+      })
 
-      if (isExistUser) {
+      const isExistUserName = await prisma.user.findUnique({
+        where: { userName }
+      })
+
+      if (isExistUserEmail) {
         return res
           .status(400)
           .json({ error: 'Пользователь с таким email уже существует' })
+      }
+      else if (isExistUserName) {
+        return res
+          .status(400)
+          .json({ error: 'Пользователь с таким username уже существует' })
       }
 
       const hashPassword = await bcrypt.hash(password, 10)
@@ -47,6 +58,7 @@ const UserController = {
       const user = await prisma.user.create({
         data: {
           email: email,
+          userName: userName,
           password: hashPassword,
           name: name,
           avatarUrl: result.secure_url
@@ -92,15 +104,12 @@ const UserController = {
 
   async updateUser(req, res) {
     let { id } = req.params
-    const { name, email, bio, location, dateOfBirth } = req.body
+    const { name, email, bio, location, dateOfBirth, userName } = req.body
     id = parseInt(id)
-    console.log(req.file)
 
     if (id !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
-
-    await new Promise(resolve => setTimeout(resolve, 1000))
 
     try {
       if (email) {
@@ -118,10 +127,21 @@ const UserController = {
           where: { email }
         })
 
+        const existingUserName = await prisma.user.findFirst({
+          where: { userName }
+        })
+
         if (existingEmail && existingEmail.id !== id) {
           return res.status(400).json({
             error:
               'Пользователь с таким email уже существует. Не получилось обновить данные'
+          })
+        }
+
+        else if (existingUserName && existingUserName.id !== id) {
+          return res.status(400).json({
+            error:
+              'Пользователь с таким username уже существует. Не получилось обновить данные'
           })
         }
       }
@@ -131,6 +151,7 @@ const UserController = {
         data: {
           name: name || undefined,
           email: email || undefined,
+          userName: userName || undefined,
           bio: bio || '',
           location: location || '',
           dateOfBirth: dateOfBirth || null,
@@ -157,6 +178,7 @@ const UserController = {
                 select: {
                   id: true,
                   name: true,
+                  userName: true,
                   avatarUrl: true
                 }
               }
@@ -168,6 +190,7 @@ const UserController = {
                 select: {
                   id: true,
                   name: true,
+                  userName: true,
                   avatarUrl: true
                 }
               }
@@ -203,6 +226,7 @@ const UserController = {
                   select: {
                     id: true,
                     name: true,
+                    userName: true,
                     avatarUrl: true
                   }
                 }
@@ -214,6 +238,7 @@ const UserController = {
                   select: {
                     id: true,
                     name: true,
+                    userName: true,
                     avatarUrl: true
                   }
                 }

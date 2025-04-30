@@ -16,8 +16,25 @@ const PostController = {
           authorId: userId,
           imageUrl: req.file?.cloudinaryUrl || undefined
         },
-        include: {
-          author: true
+        select: {
+          id: true,
+          content: true,
+          authorId: true,
+          commentCount: true,
+          content: true,
+          createdAt: true,
+          likeCount: true,
+          shareCount: true,
+          title: true,
+          viewCount: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              userName: true,
+              avatarUrl: true,
+            }
+          }
         }
       })
 
@@ -69,12 +86,11 @@ const PostController = {
         author: {
           id: author.id,
           name: author.name,
+          userName: author.userName,
           avatarUrl: author.avatarUrl
         },
         likedByUser: likes.some(like => like.userId === userId),
         isFollowing: author.followers.length > 0,
-        likeCount: likes.length,
-        commentCount: comments.length
       }))
 
       // Устанавливаем заголовок с общим количеством постов
@@ -137,12 +153,11 @@ const PostController = {
         author: {
           id: author.id,
           name: author.name,
+          userName: author.userName,
           avatarUrl: author.avatarUrl
         },
         likedByUser: likes.some(like => like.userId === userId),
         isFollowing: author.followers.length > 0,
-        likeCount: likes.length,
-        commentCount: comments.length
       }))
 
       // Устанавливаем заголовок с общим количеством постов
@@ -200,12 +215,11 @@ const PostController = {
         postId: post.postId,
         userId: post.userId,
         createdAt: post.createdAt,
-        likeCount: post.likes.length,
-        commentCount: post.comments.length,
         authorId: post.authorId,
         author: {
           id: post.author.id,
           name: post.author.name,
+          userName: post.author.userName,
           avatarUrl: post.author.avatarUrl
         },
         likedByUser: post.likes.some(like => like.userId === userId),

@@ -11,15 +11,17 @@ const CommentController = {
     }
 
     try {
-      const comment = await prisma.comment.create({
-        data: {
-          content,
-          postId,
-          userId: userId
-        }
-      })
+      // Создаем комментарий и увеличиваем commentCount
+      const [comment, updatedPost] = await prisma.$transaction([
+        prisma.comment.create({ data: { postId, userId, content } }),
+        prisma.post.update({
+          where: { id: postId },
+          data: { commentCount: { increment: 1 } },
+          select: { commentCount: true }
+        })
+      ])
 
-      res.json(comment)
+      return res.json(comment)
     } catch (error) {
       console.error('Error in createComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -43,12 +45,20 @@ const CommentController = {
         return res.status(403).json({ error: 'Отказано в доступе' })
       }
 
+      // Удаляем комментарий и уменьшаем счетчик
       const transactions = await prisma.$transaction([
         prisma.commentLike.deleteMany({ where: { commentId: id } }),
-        prisma.comment.delete({ where: { id } })
+        prisma.comment.delete({ where: { id } }),
+        prisma.post.update({
+          where: { id: comment.postId },
+          data: { commentCount: { decrement: 1 } },
+          select: { commentCount: true }
+        })
       ])
 
-      res.json({ message: 'Комментарий успешно удален', transactions })
+      return res.json({
+        message: 'Комментарий успешно удалён'
+      })
     } catch (error) {
       console.error('Error in deleteComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -89,8 +99,7 @@ const CommentController = {
 
       const commentsWithLikeInfo = comments.map(({ likes, ...comment }) => ({
         ...comment,
-        likedByUser: likes.some(like => like.userId === userId),
-        likeCount: likes.length
+        likedByUser: likes.some(like => like.userId === userId)
       }))
 
       res.setHeader('x-total-count', totalComments.toString())

@@ -2,7 +2,7 @@ const { prisma } = require('../prisma/prisma-client')
 
 const CommentLikeController = {
   async toggleLike (req, res) {
-    const { commentId } = req.params
+    const commentId = parseInt(req.params.commentId);
     const userId = req.user.userId
 
     try {
@@ -24,25 +24,27 @@ const CommentLikeController = {
       })
 
       if (existingLike) {
-        // Если лайк существует - удаляем его
-        await prisma.commentLike.delete({
-          where: {
-            commentId_userId: {
-              commentId: parseInt(commentId),
-              userId: userId
-            }
-          }
-        })
+        await prisma.$transaction([
+          prisma.commentLike.delete({
+            where: { commentId_userId: { commentId, userId } }
+          }),
+          prisma.comment.update({
+            where: { id: commentId },
+            data: { likeCount: { decrement: 1 } },
+            select: { likeCount: true }
+          })
+        ])
         return res.json({ message: 'Лайк удален' })
       } else {
-        // Если лайка нет - создаем новый
-        const like = await prisma.commentLike.create({
-          data: {
-            commentId: parseInt(commentId),
-            userId: userId
-          }
-        })
-        return res.json({ message: 'Лайк добавлен', like })
+        await prisma.$transaction([
+          prisma.commentLike.create({ data: { commentId, userId } }),
+          prisma.comment.update({
+            where: { id: commentId },
+            data: { likeCount: { increment: 1 } },
+            select: { likeCount: true }
+          })
+        ])
+        return res.json({ message: 'Лайк добавлен' })
       }
     } catch (error) {
       console.error('Error in toggleCommentLike:', error)
