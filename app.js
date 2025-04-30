@@ -10,7 +10,15 @@ require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 4000
 
-app.use(cors())
+var corsOptions = {
+  origin:
+    process.env.NODE_ENV == 'production'
+      ? process.env.ORIGIN_URL_PROD
+      : process.env.ORIGIN_URL_DEV,
+  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+}
+
+app.use(cors(corsOptions))
 
 app.use(logger('dev'))
 app.use(express.json())
