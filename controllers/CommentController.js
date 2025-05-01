@@ -21,7 +21,7 @@ const CommentController = {
         })
       ])
 
-      return res.json(comment)
+      return res.json({updatedPost, comment})
     } catch (error) {
       console.error('Error in createComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -86,7 +86,8 @@ const CommentController = {
             select: {
               id: true,
               name: true,
-              avatarUrl: true
+              avatarUrl: true,
+              userName: true
             }
           },
           likes: {

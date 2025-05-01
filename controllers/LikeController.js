@@ -19,17 +19,23 @@ const LikeController = {
       })
 
       if (existingLike) {
-        return res.status(400).json({ error: 'Вы уже лайкнули этот пост' })
+        return res.status(400).json({ error: 'Вы уже лайкнули этот пост' })
       }
 
-      const like = await prisma.like.create({
-        data: {
-          postId,
-          userId
-        }
-      })
+      const [like, updatedPost] = await prisma.$transaction([
+        prisma.like.create({
+          data: {
+            postId,
+            userId
+          }
+        }),
+        prisma.post.update({
+          where: { id: postId },
+          data: { likeCount: { increment: 1 } }
+        })
+      ])
 
-      res.json({ message: 'Пост успешно лайкнут', like })
+      res.json({ message: 'Пост успешно лайкнут' })
     } catch (error) {
       console.error('Error in likePost', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -59,11 +65,17 @@ const LikeController = {
         return res.status(400).json({ error: 'Уже и так убран лайк' })
       }
 
-      const deletedLike = await prisma.like.deleteMany({
-        where: { postId: postId, userId }
-      })
+      const [deletedLike, updatedPost] = await prisma.$transaction([
+        prisma.like.deleteMany({
+          where: { postId: postId, userId }
+        }),
+        prisma.post.update({
+          where: { id: postId },
+          data: { likeCount: { decrement: 1 } }
+        })
+      ])
 
-      res.json({ message: 'Лайк успешно удален', deletedLike })
+      res.json({ message: 'Лайк успешно удален' })
     } catch (error) {
       console.error('Error in unlikePost', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })

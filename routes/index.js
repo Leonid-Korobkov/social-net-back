@@ -102,11 +102,22 @@ const upload = multer({
 router.post('/register', UserController.register)
 router.post('/login', UserController.login)
 router.get('/current', authenticateToken, UserController.currentUser)
+router.get(
+  '/users/getRandomImage',
+  authenticateToken,
+  UserController.getNewRandomImage
+)
 router.get('/users/:id', authenticateToken, UserController.getUserById)
 router.get(
   '/users/:userId/posts',
   authenticateToken,
   PostController.getPostsByUserId
+)
+
+router.put(
+  '/users/settings',
+  authenticateToken,
+  UserController.updateUserSettings
 )
 router.put(
   '/users/:id',
@@ -114,6 +125,11 @@ router.put(
   upload.single('avatar'),
   optimizeImage,
   UserController.updateUser
+)
+router.get(
+  '/users/:userId/settings',
+  authenticateToken,
+  UserController.getUserSettings
 )
 
 // Маршрутизация для постов

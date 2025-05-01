@@ -210,12 +210,7 @@ const PostController = {
       }
 
       const postWithLikesUserInfo = {
-        id: post.id,
-        content: post.content,
-        postId: post.postId,
-        userId: post.userId,
-        createdAt: post.createdAt,
-        authorId: post.authorId,
+        ...post,
         author: {
           id: post.author.id,
           name: post.author.name,

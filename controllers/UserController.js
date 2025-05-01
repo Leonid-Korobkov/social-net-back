@@ -5,6 +5,7 @@ const fs = require('fs')
 const path = require('path')
 const jwt = require('jsonwebtoken')
 const cloudinary = require('cloudinary').v2
+const uuid = require('uuid');
 
 const UserController = {
   async register(req, res) {
@@ -104,7 +105,7 @@ const UserController = {
 
   async updateUser(req, res) {
     let { id } = req.params
-    const { name, email, bio, location, dateOfBirth, userName } = req.body
+    const { name, email, bio, location, dateOfBirth, userName, avatar } = req.body
     id = parseInt(id)
 
     if (id !== req.user.userId) {
@@ -112,39 +113,41 @@ const UserController = {
     }
 
     try {
-      if (email) {
-        const isExistUser = await prisma.user.findFirst({
-          where: { id: req.user.userId }
+      const isExistUser = await prisma.user.findFirst({
+        where: { id: req.user.userId }
+      })
+
+      if (isExistUser && isExistUser.id !== id) {
+        return res.status(400).json({
+          error: 'Пользователь не найден'
         })
+      }
 
-        if (isExistUser && isExistUser.id !== id) {
-          return res.status(400).json({
-            error: 'Пользователь не найден'
-          })
-        }
-
+      if (email) {
         const existingEmail = await prisma.user.findFirst({
           where: { email }
         })
-
-        const existingUserName = await prisma.user.findFirst({
-          where: { userName }
-        })
-
         if (existingEmail && existingEmail.id !== id) {
           return res.status(400).json({
             error:
               'Пользователь с таким email уже существует. Не получилось обновить данные'
           })
         }
+      }
+      if (userName) {
+        const existingUserName = await prisma.user.findFirst({
+          where: { userName }
+        })
 
-        else if (existingUserName && existingUserName.id !== id) {
+        if (existingUserName && existingUserName.id !== id) {
           return res.status(400).json({
             error:
               'Пользователь с таким username уже существует. Не получилось обновить данные'
           })
         }
       }
+
+      const newImg = req.file ? req.file?.cloudinaryUrl : avatar ? avatar : undefined
 
       const user = await prisma.user.update({
         where: { id: id },
@@ -155,7 +158,7 @@ const UserController = {
           bio: bio || '',
           location: location || '',
           dateOfBirth: dateOfBirth || null,
-          avatarUrl: req.file?.cloudinaryUrl || undefined
+          avatarUrl: newImg
         }
       })
       res.json(user)
@@ -306,6 +309,81 @@ const UserController = {
     } catch (error) {
       console.error('Error in getUserById', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+
+  async getUserSettings(req, res) {
+    try {
+      const { userId } = req.params
+      const settings = await prisma.user.findUnique({
+        where: { id: parseInt(userId) },
+        select: {
+          showEmail: true,
+          showBio: true,
+          showLocation: true,
+          showDateOfBirth: true,
+          reduceAnimation: true
+        }
+      })
+      res.json(settings)
+    } catch (error) {
+      res.status(500).json({ message: error.message })
+    }
+  },
+  
+  async updateUserSettings(req, res) {
+    try {
+      const userId  = req.user.userId
+      const {
+        showEmail,
+        showBio,
+        showLocation,
+        showDateOfBirth,
+        reduceAnimation
+      } = req.body
+  
+      const updatedUser = await prisma.user.update({
+        where: { id: parseInt(userId) },
+        data: {
+          showEmail,
+          showBio,
+          showLocation,
+          showDateOfBirth,
+          reduceAnimation
+        }
+      })
+      
+      return res.json({message: "Настройки сохранены"})
+    } catch (error) {
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере. Не удалось применить настройки' })
+    }
+  },
+
+  async getNewRandomImage(req, res) {
+    try {
+      // Генерируем аватар и загружаем его в Cloudinary
+      const size = 400
+      const generatedImage = jdenticon.toPng(uuid.v4(),size)
+      
+      const result = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            folder: 'social-net',
+            resource_type: 'auto',
+            format: 'webp',
+            transformation: [{ quality: 'auto:best' }]
+          },
+          (error, result) => {
+            if (error) reject(error)
+            else resolve(result)
+          }
+        ).end(generatedImage)
+      })
+      return res.json(result.secure_url)
+    }
+    catch (error) {
+      console.error('Error in getNewRandomImage', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере. Не удалось сгенерировать изображение' })
     }
   }
 }

@@ -11,11 +11,10 @@ const app = express()
 const port = process.env.PORT || 4000
 
 var corsOptions = {
-  origin:
-    process.env.NODE_ENV == 'production'
-      ? process.env.ORIGIN_URL_PROD
-      : process.env.ORIGIN_URL_DEV,
-  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+  // При NODE_ENV=production используем продакшен-адрес, иначе — локальный
+  origin: [process.env.ORIGIN_URL_PROD, process.env.ORIGIN_URL_DEV],
+  credentials: true, // разрешить отправку cookie/заголовка авторизации
+  optionsSuccessStatus: 200 // код ответа для IE/старых браузеров (по умолчанию 204)
 }
 
 app.use(cors(corsOptions))
