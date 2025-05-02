@@ -345,12 +345,12 @@ const UserController = {
       const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
-          showEmail,
-          showBio,
-          showLocation,
-          showDateOfBirth,
-          reduceAnimation
-        }
+          showEmail: showEmail ? true : false,
+          showBio: showBio ? true : false,
+          showLocation: showLocation ? true : false,
+          showDateOfBirth: showDateOfBirth ? true : false,
+          reduceAnimation: reduceAnimation ? true : false
+        },
       })
       
       return res.json({message: "Настройки сохранены"})
