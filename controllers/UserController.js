@@ -355,7 +355,7 @@ const UserController = {
       
       return res.json({message: "Настройки сохранены"})
     } catch (error) {
-      return res.status(500).json({ error: 'Что-то пошло не так на сервере. Не удалось применить настройки' })
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере. Не удалось применить настройки', errorMessage: error })
     }
   },
 
