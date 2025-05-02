@@ -347,11 +347,11 @@ const UserController = {
       const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
-          showEmail: showEmail ? true : false,
-          showBio: showBio ? true : false,
-          showLocation: showLocation ? true : false,
-          showDateOfBirth: showDateOfBirth ? true : false,
-          reduceAnimation: reduceAnimation ? true : false
+          showEmail: Boolean(showEmail),
+          showBio: Boolean(showBio),
+          showLocation: Boolean(showLocation),
+          showDateOfBirth: Boolean(showDateOfBirth),
+          reduceAnimation: Boolean(reduceAnimation)
         },
       })
       
