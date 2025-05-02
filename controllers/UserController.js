@@ -223,6 +223,7 @@ const UserController = {
         prisma.user.findUnique({
           where: { id },
           include: {
+            password: false,
             followers: {
               include: {
                 follower: {
@@ -341,6 +342,7 @@ const UserController = {
         showDateOfBirth,
         reduceAnimation
       } = req.body
+      console.log(req.body)
   
       const updatedUser = await prisma.user.update({
         where: { id: userId },
