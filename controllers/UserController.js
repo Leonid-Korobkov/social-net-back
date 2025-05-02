@@ -343,7 +343,7 @@ const UserController = {
       } = req.body
   
       const updatedUser = await prisma.user.update({
-        where: { id: parseInt(userId) },
+        where: { id: userId },
         data: {
           showEmail,
           showBio,
