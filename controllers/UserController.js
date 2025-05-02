@@ -334,7 +334,7 @@ const UserController = {
   
   async updateUserSettings(req, res) {
     try {
-      const userId  = req.user.userId
+      const userId = req.user.userId
       const {
         showEmail,
         showBio,
@@ -355,7 +355,7 @@ const UserController = {
         },
       })
       
-      return res.json({message: "Настройки сохранены"})
+      return res.json({message: "Настройки сохранены", updatedUser})
     } catch (error) {
       return res.status(500).json({ error: 'Что-то пошло не так на сервере. Не удалось применить настройки', errorMessage: error })
     }
