@@ -215,13 +215,30 @@ const UserController = {
   async getUserById(req, res) {
     let { id } = req.params // ID из параметров маршрута
     const userId = req.user.userId // ID текущего пользователя
-    id = parseInt(id)
+
+    let username
+    let userWithUsername
 
     try {
+      if (id.toString().startsWith('@')) {
+        username = id.slice(1)
+        userWithUsername = await prisma.user.findUnique({
+          where: {userName: username},
+        })
+        id = userWithUsername.id
+      } else if (isNaN(id)) {
+        username = id
+        userWithUsername = await prisma.user.findUnique({
+          where: {userName: username},
+        })
+        id = userWithUsername.id
+      } else {
+        id = parseInt(id)
+      }
       // Получаем всю необходимую информацию в одном запросе
       const [user, currentUserFollowing, postCount] = await prisma.$transaction([
         prisma.user.findUnique({
-          where: { id },
+          where: username ? { userName: username } : { id },
           include: {
             password: false,
             followers: {
@@ -342,7 +359,6 @@ const UserController = {
         showDateOfBirth,
         reduceAnimation
       } = req.body
-      console.log(req.body)
   
       const updatedUser = await prisma.user.update({
         where: { id: userId },

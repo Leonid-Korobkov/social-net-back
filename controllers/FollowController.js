@@ -3,8 +3,26 @@ const { prisma } = require('../prisma/prisma-client')
 const FollowController = {
   async followUser (req, res) {
     let { followingId } = req.body
-    followingId = parseInt(followingId)
     const userId = req.user.userId
+
+    let username
+    let userWithUsername
+
+    if (followingId.toString().startsWith('@')) {
+      username = followingId.slice(1)
+      userWithUsername = await prisma.user.findUnique({
+        where: { userName: username }
+      })
+      followingId = userWithUsername.id
+    } else if (isNaN(followingId)) {
+      username = followingId
+      userWithUsername = await prisma.user.findUnique({
+        where: { userName: username }
+      })
+      followingId = userWithUsername.id
+    } else {
+      followingId = parseInt(followingId)
+    }
 
     if (!followingId) {
       return res.status(400).json({ error: 'Пользователь не найден' })
@@ -42,8 +60,26 @@ const FollowController = {
 
   async unfollowUser (req, res) {
     let { followingId } = req.body
-    followingId = parseInt(followingId)
     const userId = req.user.userId
+
+    let username
+    let userWithUsername
+
+    if (followingId.toString().startsWith('@')) {
+      username = followingId.slice(1)
+      userWithUsername = await prisma.user.findUnique({
+        where: { userName: username }
+      })
+      followingId = userWithUsername.id
+    } else if (isNaN(followingId)) {
+      username = followingId
+      userWithUsername = await prisma.user.findUnique({
+        where: { userName: username }
+      })
+      followingId = userWithUsername.id
+    } else {
+      followingId = parseInt(followingId)
+    }
 
     if (!followingId) {
       return res.status(400).json({ error: 'Пользователь не найден' })

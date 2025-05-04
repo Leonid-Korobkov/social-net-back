@@ -110,12 +110,31 @@ const PostController = {
   },
   async getPostsByUserId (req, res) {
     const params = req.params
-    const userId = parseInt(params.userId)
+    let userId = params.userId
     const page = parseInt(req.query.page)
     const limit = parseInt(req.query.limit)
     const skip = (page - 1) * limit
 
+    let username
+    let userWithUsername
+    
     try {
+      if (userId.toString().startsWith('@')) {
+        username = userId.slice(1)
+        userWithUsername = await prisma.user.findUnique({
+          where: {userName: username},
+        })
+        userId = userWithUsername.id
+      } else if (isNaN(userId)) {
+        username = userId
+        userWithUsername = await prisma.user.findUnique({
+          where: {userName: username},
+        })
+        userId = userWithUsername.id
+      } else {
+        userId = parseInt(userId)
+      }
+
       const totalPosts = await prisma.post.count({
         where: { authorId: userId },
       })
@@ -229,7 +248,6 @@ const PostController = {
   },
   async deletePost (req, res) {
     let { id } = req.params
-    console.log(id)
     id = parseInt(id)
     const userId = req.user.userId
 
