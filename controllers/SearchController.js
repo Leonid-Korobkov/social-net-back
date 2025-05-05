@@ -17,20 +17,44 @@ const SearchController = {
       }
 
       if (type === 'all' || type === 'users') {
-        searchResults.users = await prisma.user.findMany({
+        const users = await prisma.user.findMany({
           where: {
-            OR: [{ name: { contains: query, mode: 'insensitive' } }]
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { userName: { contains: query, mode: 'insensitive' } },
+              { bio: { contains: query, mode: 'insensitive' } },
+              { location: { contains: query, mode: 'insensitive' } },
+              { email: { contains: query, mode: 'insensitive' } }
+            ]
           },
           select: {
             id: true,
             name: true,
+            userName: true,
             avatarUrl: true,
             bio: true,
-            location: true
+            location: true,
+            dateOfBirth: true,
+            email: true,
+            showBio: true,
+            showLocation: true,
+            showDateOfBirth: true,
+            showEmail: true
           },
           skip,
           take: parseInt(limit)
         })
+
+        searchResults.users = users.map(user => ({
+          id: user.id,
+          name: user.name,
+          userName: user.userName,
+          avatarUrl: user.avatarUrl,
+          bio: user.showBio ? user.bio : null,
+          location: user.showLocation ? user.location : null,
+          dateOfBirth: user.showDateOfBirth ? user.dateOfBirth : null,
+          email: user.showEmail ? user.email : null
+        }))
       }
 
       if (type === 'all' || type === 'posts') {
@@ -46,6 +70,7 @@ const SearchController = {
               select: {
                 id: true,
                 name: true,
+                userName: true,
                 avatarUrl: true
               }
             },
@@ -71,6 +96,7 @@ const SearchController = {
               select: {
                 id: true,
                 name: true,
+                userName: true,
                 avatarUrl: true
               }
             },
