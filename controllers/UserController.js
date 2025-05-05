@@ -248,7 +248,10 @@ const UserController = {
                     id: true,
                     name: true,
                     userName: true,
-                    avatarUrl: true
+                    avatarUrl: true,
+                    _count: {
+                      select: { followers: true }
+                    }
                   }
                 }
               }
@@ -260,12 +263,20 @@ const UserController = {
                     id: true,
                     name: true,
                     userName: true,
-                    avatarUrl: true
+                    avatarUrl: true,
+                    _count: {
+                      select: { followers: true }
+                    }
                   }
                 }
               }
             },
-            posts: false
+            posts: false,
+            _count: {
+              select: {
+                followers: true,
+              }
+            }
           }
         }),
         // Получаем список всех пользователей, на которых подписан текущий пользователь

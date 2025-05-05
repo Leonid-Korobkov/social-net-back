@@ -39,7 +39,12 @@ const SearchController = {
             showBio: true,
             showLocation: true,
             showDateOfBirth: true,
-            showEmail: true
+            showEmail: true,
+            _count: {
+              select: {
+                followers: true
+              }
+            }
           },
           skip,
           take: parseInt(limit)
@@ -53,7 +58,8 @@ const SearchController = {
           bio: user.showBio ? user.bio : null,
           location: user.showLocation ? user.location : null,
           dateOfBirth: user.showDateOfBirth ? user.dateOfBirth : null,
-          email: user.showEmail ? user.email : null
+          email: user.showEmail ? user.email : null,
+          _count: user._count
         }))
       }
 
