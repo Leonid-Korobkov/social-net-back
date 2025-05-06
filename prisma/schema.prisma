@@ -32,6 +32,8 @@ model User {
   showLocation    Boolean       @default(true)
   showDateOfBirth Boolean       @default(true)
   reduceAnimation Boolean       @default(false)
+  PostView        PostView[]
+  PostShare       PostShare[]
 
   @@index([email])
   @@index([name])
@@ -49,21 +51,43 @@ model Follows {
 }
 
 model Post {
-  id           Int       @id @default(autoincrement())
+  id           Int         @id @default(autoincrement())
   title        String?
   content      String
-  author       User      @relation(fields: [authorId], references: [id])
+  author       User        @relation(fields: [authorId], references: [id])
   authorId     Int
   likes        Like[]
   comments     Comment[]
-  likeCount    Int?      @default(0)
-  commentCount Int?      @default(0)
-  viewCount    Int       @default(0)
-  shareCount   Int       @default(0)
-  createdAt    DateTime  @default(now())
+  likeCount    Int?        @default(0)
+  commentCount Int?        @default(0)
+  viewCount    Int         @default(0)
+  shareCount   Int         @default(0)
+  createdAt    DateTime    @default(now())
+  PostView     PostView[]
+  PostShare    PostShare[]
 
   @@index([authorId])
   @@index([createdAt])
+}
+
+model PostView {
+  id     Int  @id @default(autoincrement())
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+  post   Post @relation(fields: [postId], references: [id])
+  postId Int
+
+  @@unique([userId, postId])
+}
+
+model PostShare {
+  id     Int  @id @default(autoincrement())
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+  post   Post @relation(fields: [postId], references: [id])
+  postId Int
+
+  @@unique([userId, postId])
 }
 
 model Like {

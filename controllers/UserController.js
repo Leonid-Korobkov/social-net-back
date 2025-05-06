@@ -330,6 +330,10 @@ const UserController = {
       // Возвращаем данные пользователя и статус подписки
       res.json({
         ...user,
+        bio: user.showBio ? user.bio : null,
+        location: user.showLocation ? user.location : null,
+        dateOfBirth: user.showDateOfBirth ? user.dateOfBirth : null,
+        email: user.showEmail ? user.email : null,
         isFollowing: followingIds.has(id),
         followers: followersWithInfo,
         following: followingWithInfo,

@@ -148,6 +148,21 @@ router.get(
   authenticateToken,
   CommentController.getComments
 )
+router.post(
+  '/posts/:id/view',
+  authenticateToken,
+  PostController.incrementViewCount
+)
+router.post(
+  '/posts/:id/share',
+  authenticateToken,
+  PostController.incrementShareCount
+)
+router.post(
+  '/posts/views/batch',
+  authenticateToken,
+  PostController.incrementViewsBatch
+)
 
 // Маршрутизация для комментариев
 router.post('/comments', authenticateToken, CommentController.createComment)
