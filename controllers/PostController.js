@@ -109,6 +109,7 @@ const PostController = {
     }
   },
   async getPostsByUserId (req, res) {
+    const currentUser = req.user.userId
     const params = req.params
     let userId = params.userId
     const page = parseInt(req.query.page)
@@ -175,7 +176,7 @@ const PostController = {
           userName: author.userName,
           avatarUrl: author.avatarUrl
         },
-        likedByUser: likes.some(like => like.userId === userId),
+        likedByUser: likes.some(like => like.userId === currentUser),
         isFollowing: author.followers.length > 0,
       }))
 
