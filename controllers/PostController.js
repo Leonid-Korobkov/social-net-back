@@ -266,6 +266,8 @@ const PostController = {
       const transactions = await prisma.$transaction([
         prisma.comment.deleteMany({ where: { postId: id } }),
         prisma.like.deleteMany({ where: { postId: id } }),
+        prisma.postView.deleteMany({ where: { postId: id } }),
+        prisma.postShare.deleteMany({ where: { postId: id } }),
         prisma.post.delete({ where: { id } })
       ])
 
