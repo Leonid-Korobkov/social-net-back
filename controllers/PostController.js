@@ -374,7 +374,54 @@ const PostController = {
       res.json({ viewed: toView })
     } catch (error) {
       console.error('Error in incrementViewsBatch', error)
-      return res.status(500).json({ error: 'Не удалось увеличить просмотры' })
+      return res.status(500).json({ error: 'Не удалось увеличить просмотры', errorMessage: error })
+    }
+  },
+  async updatePost (req, res) {
+    const { id } = req.params
+    const { content } = req.body
+    const userId = req.user.userId
+
+    if (!content) {
+      return res.status(400).json({ error: 'Контент не может быть пустым' })
+    }
+
+    try {
+      const post = await prisma.post.findUnique({
+        where: { id: parseInt(id) }
+      })
+
+      if (!post) {
+        return res.status(404).json({ error: 'Пост не найден' })
+      }
+
+      if (post.authorId !== userId) {
+        return res.status(403).json({ error: 'Отказано в доступе' })
+      }
+
+      const updatedPost = await prisma.post.update({
+        where: { id: parseInt(id) },
+        data: {
+          idEdited: true,
+          content,
+          imageUrl: req.file?.cloudinaryUrl || post.imageUrl
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              userName: true,
+              avatarUrl: true,
+            }
+          }
+        }
+      })
+
+      res.json(updatedPost)
+    } catch (error) {
+      console.error('Error in updatePost', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
 }

@@ -83,6 +83,7 @@ const LikeController = {
   },
 
   async getLikes (req, res) {
+    const currentUserId = req.user.userId
     const { postId } = req.params
 
     try {
@@ -93,13 +94,43 @@ const LikeController = {
             select: {
               id: true,
               name: true,
-              avatarUrl: true
+              userName: true,
+              avatarUrl: true,
+              followers: {
+                where: {
+                  followerId: currentUserId
+                }
+              },
+              _count: {
+                select: {
+                  followers: true
+                }
+              }
             }
           }
-        }
+        },
+        orderBy: {
+          user: {
+            followers: {
+              _count: 'desc'
+            }
+          }
+        },
       })
 
-      return res.json(likes)
+      const sortedLikes = likes
+        .map(like => {
+          return {
+            ...like,
+            user: {
+              ...like.user,
+              isFollowing: like.user.followers.length > 0
+            }
+          }
+        })
+        .sort((a, b) => b.user.isFollowing - a.user.isFollowing)
+
+      return res.json(sortedLikes)
     } catch (error) {
       console.error('Error in getLikes:', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })

@@ -142,6 +142,7 @@ router.post(
 )
 router.get('/posts', authenticateToken, PostController.getAllPosts)
 router.get('/posts/:id', authenticateToken, PostController.getPostById)
+router.put('/posts/:id', authenticateToken, PostController.updatePost)
 router.delete('/posts/:id', authenticateToken, PostController.deletePost)
 router.get(
   '/posts/:postId/comments',

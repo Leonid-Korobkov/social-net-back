@@ -65,6 +65,7 @@ model Post {
   createdAt    DateTime    @default(now())
   PostView     PostView[]
   PostShare    PostShare[]
+  idEdited     Boolean     @default(false)
 
   @@index([authorId])
   @@index([createdAt])

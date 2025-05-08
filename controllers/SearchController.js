@@ -4,6 +4,7 @@ const SearchController = {
   async search (req, res) {
     try {
       const { query, type = 'all', page = 1, limit = 10 } = req.query
+      const currentUserId = req.user.userId
       const skip = (page - 1) * limit
 
       if (!query) {
@@ -40,27 +41,42 @@ const SearchController = {
             showLocation: true,
             showDateOfBirth: true,
             showEmail: true,
+            followers: {
+              where: {
+                followerId: currentUserId
+              }
+            },
             _count: {
               select: {
                 followers: true
               }
             }
           },
+          orderBy: {
+            followers: {
+              _count: 'desc'
+            }
+          },
           skip,
           take: parseInt(limit)
         })
 
-        searchResults.users = users.map(user => ({
-          id: user.id,
-          name: user.name,
-          userName: user.userName,
-          avatarUrl: user.avatarUrl,
-          bio: user.showBio ? user.bio : null,
-          location: user.showLocation ? user.location : null,
-          dateOfBirth: user.showDateOfBirth ? user.dateOfBirth : null,
-          email: user.showEmail ? user.email : null,
-          _count: user._count
-        }))
+        searchResults.users = users
+          .map(user => {
+            return {
+              id: user.id,
+              name: user.name,
+              userName: user.userName,
+              avatarUrl: user.avatarUrl,
+              bio: user.showBio ? user.bio : null,
+              location: user.showLocation ? user.location : null,
+              dateOfBirth: user.showDateOfBirth ? user.dateOfBirth : null,
+              email: user.showEmail ? user.email : null,
+              isFollowing: user.followers.length > 0,
+              _count: user._count
+            }
+          })
+          .sort((a, b) => b.isFollowing - a.isFollowing)
       }
 
       if (type === 'all' || type === 'posts') {
