@@ -62,6 +62,7 @@ model Post {
   commentCount Int?        @default(0)
   viewCount    Int         @default(0)
   shareCount   Int         @default(0)
+  media        String[]    @default([])
   createdAt    DateTime    @default(now())
   PostView     PostView[]
   PostShare    PostShare[]

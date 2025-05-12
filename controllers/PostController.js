@@ -1,8 +1,9 @@
 const { prisma } = require('../prisma/prisma-client')
+const cloudinary = require('cloudinary').v2
 
 const PostController = {
   async createPost (req, res) {
-    const { content } = req.body
+    const { content, media } = req.body
     const userId = req.user.userId
 
     if (!content) {
@@ -10,10 +11,15 @@ const PostController = {
     }
 
     try {
+      // Убедимся, что media является массивом
+      const mediaArray = Array.isArray(media) ? media : []
+      
+      
       const post = await prisma.post.create({
         data: {
           content,
           authorId: userId,
+          media: mediaArray, // Гарантированно передаем массив
           imageUrl: req.file?.cloudinaryUrl || undefined
         },
         select: {
@@ -21,12 +27,12 @@ const PostController = {
           content: true,
           authorId: true,
           commentCount: true,
-          content: true,
           createdAt: true,
           likeCount: true,
           shareCount: true,
           title: true,
           viewCount: true,
+          media: true, // Выбираем media из созданного поста
           author: {
             select: {
               id: true,
@@ -377,9 +383,9 @@ const PostController = {
       return res.status(500).json({ error: 'Не удалось увеличить просмотры', errorMessage: error })
     }
   },
-  async updatePost (req, res) {
+  async updatePost(req, res) {
     const { id } = req.params
-    const { content } = req.body
+    const { content, media } = req.body
     const userId = req.user.userId
 
     if (!content) {
@@ -399,13 +405,20 @@ const PostController = {
         return res.status(403).json({ error: 'Отказано в доступе' })
       }
 
+      const updateData = {
+        idEdited: true,
+        content,
+        imageUrl: req.file?.cloudinaryUrl || post.imageUrl
+      }
+      
+      // Добавляем media только если передан новый массив
+      if (media) {
+        updateData.media = media
+      }
+
       const updatedPost = await prisma.post.update({
         where: { id: parseInt(id) },
-        data: {
-          idEdited: true,
-          content,
-          imageUrl: req.file?.cloudinaryUrl || post.imageUrl
-        },
+        data: updateData,
         include: {
           author: {
             select: {
@@ -424,6 +437,130 @@ const PostController = {
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
+  async uploadMedia(req, res) {
+    // Проверяем наличие mediaUrls
+    if (!req.mediaUrls) {
+      return res
+        .status(400)
+        .json({ error: 'Не удалось загрузить файл: mediaUrls не найден' })
+    }
+
+    // Проверяем, что это массив и в нем есть элементы
+    if (!Array.isArray(req.mediaUrls) || req.mediaUrls.length === 0) {
+      return res.status(400).json({
+        error: 'Не удалось загрузить файл: пустой массив или неверный формат'
+      })
+    }
+
+    // Возвращаем первый URL из загруженных (так как uploadMultiple ограничен одним файлом)
+    const url = req.mediaUrls[0]
+
+    return res.json({ url })
+  },
+  async deleteMedia(req, res)  {
+    try {
+      const { url } = req.body
+
+      if (!url) {
+        return res.status(400).json({ error: 'URL файла не указан' })
+      }
+  
+      // Проверяем, является ли URL действительным URL Cloudinary
+      if (!url.includes('cloudinary.com') || !url.includes('/upload/')) {
+        return res.status(400).json({ error: 'Неверный формат URL Cloudinary' })
+      }
+  
+      // Извлекаем public_id из URL
+      // Формат URL: https://res.cloudinary.com/{cloud_name}/image/upload/v{version}/{folder}/{public_id}.{format}
+      // Пример: https://res.cloudinary.com/djsmqdror/image/upload/v1746799257/zling/25/dcq0ytx6yqwyc1qpu040.webp
+      try {
+        // Получаем все части после /upload/
+        const uploadIndex = url.indexOf('/upload/')
+        if (uploadIndex === -1) {
+          throw new Error('Не удалось найти /upload/ в URL')
+        }
+  
+        // Отрезаем всё до /upload/ включительно
+        const pathAfterUpload = url.substring(uploadIndex + 8) // +8 = длина "/upload/"
+  
+        // Разбираем оставшийся путь
+        const pathParts = pathAfterUpload.split('/')
+  
+        // Первая часть - это обычно версия (v1234567890)
+        // Пропускаем её, если она начинается с 'v'
+        let startIndex = 0
+        if (pathParts[0].startsWith('v') && /^v\d+$/.test(pathParts[0])) {
+          startIndex = 1
+        }
+  
+        // Объединяем все оставшиеся части пути, кроме расширения файла
+        const remainingPath = pathParts.slice(startIndex).join('/')
+  
+        // Удаляем расширение файла (.webp, .jpg и т.д.)
+        const lastDotIndex = remainingPath.lastIndexOf('.')
+        const publicId =
+          lastDotIndex !== -1
+            ? remainingPath.substring(0, lastDotIndex)
+            : remainingPath
+  
+        // Определяем тип ресурса (image или video)
+        const resourceType = url.includes('/video/') ? 'video' : 'image'
+  
+        // Используем метод delete_resources вместо destroy
+        const result = await cloudinary.api.delete_resources([publicId], {
+          type: 'upload',
+          resource_type: resourceType
+        })
+  
+        return res.json({
+          success: true,
+          message: 'Файл успешно удален',
+          result
+        })
+      } catch (cloudinaryError) {
+        // Пробуем альтернативный метод, если первый не сработал
+        try {
+          // Извлекаем public_id из URL (старый способ)
+          const urlParts = url.split('/')
+          const fileNameWithExt = urlParts[urlParts.length - 1] // Последний сегмент URL
+          const publicIdParts = fileNameWithExt.split('.')
+          const publicIdWithoutExt = publicIdParts.slice(0, -1).join('.')
+          const folderPath = urlParts[urlParts.length - 2] // Предпоследний сегмент URL
+          const fullPublicId = `${folderPath}/${publicIdWithoutExt}`
+  
+          // Определяем тип ресурса
+          const resourceType = url.includes('/video/') ? 'video' : 'image'
+  
+          // Пробуем метод destroy
+          const result = await cloudinary.uploader.destroy(fullPublicId, {
+            resource_type: resourceType,
+            invalidate: true
+          })
+  
+          if (result.result === 'ok' || result.result === 'not found') {
+            return res.json({
+              success: true,
+              message: 'Файл успешно удален (альтернативный метод)',
+              result
+            })
+          } else {
+            return res.status(500).json({
+              error: 'Не удалось удалить файл альтернативным методом',
+              details: result
+            })
+          }
+        } catch (alternativeError) {
+          return res.status(500).json({
+            error: 'Не удалось удалить файл никакими методами',
+            originalError: cloudinaryError.message,
+            alternativeError: alternativeError.message
+          })
+        }
+      }
+    } catch (error) {
+      return res.status(500).json({ error: 'Ошибка удаления медиафайла' })
+    }
+  }
 }
 
 module.exports = PostController

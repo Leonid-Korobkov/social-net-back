@@ -14,6 +14,11 @@ const {
   SearchController
 } = require('../controllers')
 const { authenticateToken } = require('../middleware/auth')
+const {
+  uploadMultiple,
+  processMedia,
+  uploadSingle
+} = require('../middleware/upload')
 
 // Конфигурация Cloudinary
 cloudinary.config({
@@ -52,13 +57,7 @@ const optimizeImage = async (req, res, next) => {
   if (!req.file) return next()
 
   try {
-    const optimized = await sharp(req.file.buffer)
-      // .resize(1200, 1200, {
-      //   fit: 'inside',
-      //   withoutEnlargement: true
-      // })
-      // .webp({ quality: 80 })
-      .toBuffer()
+    const optimized = await sharp(req.file.buffer).toBuffer()
 
     // Загружаем оптимизированное изображение в Cloudinary
     const result = await new Promise((resolve, reject) => {
@@ -87,17 +86,6 @@ const optimizeImage = async (req, res, next) => {
   }
 }
 
-// Создаем экземпляр multer
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
-  }
-})
-
-// Применяем middleware кэширования для всех маршрутов
-// router.use(cacheControl)
-
 // Маршрутизация для пользователя
 router.post('/register', UserController.register)
 router.post('/login', UserController.login)
@@ -122,7 +110,7 @@ router.put(
 router.put(
   '/users/:id',
   authenticateToken,
-  upload.single('avatar'),
+  uploadSingle('avatar'),
   optimizeImage,
   UserController.updateUser
 )
@@ -132,17 +120,35 @@ router.get(
   UserController.getUserSettings
 )
 
-// Маршрутизация для постов
+// Маршрутизация для постов и медиа
 router.post(
   '/posts',
   authenticateToken,
-  upload.single('image'),
-  optimizeImage,
+  uploadMultiple('media', 10), // Можно загружать до 10 файлов в поле media
+  processMedia, // Обработка медиа-файлов
   PostController.createPost
 )
+
+// Маршрут для обновления поста с медиа
+router.put(
+  '/posts/:id',
+  authenticateToken,
+  uploadMultiple('media', 10),
+  processMedia,
+  PostController.updatePost
+)
+
+// Загрузка отдельного медиафайла (например, для предварительной загрузки)
+router.post(
+  '/media/upload',
+  authenticateToken,
+  uploadMultiple('media', 1),
+  processMedia,
+  PostController.uploadMedia
+)
+
 router.get('/posts', authenticateToken, PostController.getAllPosts)
 router.get('/posts/:id', authenticateToken, PostController.getPostById)
-router.put('/posts/:id', authenticateToken, PostController.updatePost)
 router.delete('/posts/:id', authenticateToken, PostController.deletePost)
 router.get(
   '/posts/:postId/comments',
@@ -201,5 +207,8 @@ router.get(
 
 // Маршрутизация для поиска
 router.get('/search', authenticateToken, SearchController.search)
+
+// Удаление медиафайла из Cloudinary
+router.delete('/media/delete', authenticateToken, PostController.deleteMedia)
 
 module.exports = router
