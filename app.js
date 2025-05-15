@@ -1,68 +1,49 @@
+// app.js
 const createError = require('http-errors')
 const express = require('express')
 const path = require('path')
 const cookieParser = require('cookie-parser')
 const logger = require('morgan')
-const fs = require('fs')
 const cors = require('cors')
 require('dotenv').config()
 
 const app = express()
-const port = process.env.PORT || 4000
 
-var corsOptions = {
-  // При NODE_ENV=production используем продакшен-адрес, иначе — локальный
+// CORS: prod или dev origin из .env
+const corsOptions = {
   origin: [process.env.ORIGIN_URL_PROD, process.env.ORIGIN_URL_DEV],
-  credentials: true, // разрешить отправку cookie/заголовка авторизации
-  optionsSuccessStatus: 200 // код ответа для IE/старых браузеров (по умолчанию 204)
+  credentials: true,
+  optionsSuccessStatus: 200
 }
-
 app.use(cors(corsOptions))
 
+// Логи, парсинг тела, cookie и шаблонизатор
 app.use(logger('dev'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
 app.set('view engine', 'jade')
 
-// Глобальная задержка на 1 секунду для всех запросов
-// app.use((req, res, next) => {
-//   setTimeout(next, 1000)
-// })
+// Статика для загрузок (если в функции Netlify вы подключаете внешний storage — его можно убрать)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
-// Монтирование статических файлов (картинки и тд)
-app.use('/uploads', express.static('uploads'))
-
-// Монтирование маршрутов по пути api
+// Роуты API
 app.use('/api', require('./routes'))
 
-// Базовый роут для проверки работы сервера
+// Простой эндпоинт для проверки
 app.get('/', (req, res) => {
   res.send('Server is running')
 })
 
-// Запуск сервера
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
-
-// Cоздание директории для картинок, если ее не существует
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads')
-}
-
-// catch 404 and forward to error handler
-app.use(function (req, res, next) {
+// 404
+app.use((req, res, next) => {
   next(createError(404))
 })
 
-// error handler
-app.use(function (err, req, res, next) {
-  // set locals, only providing error in development
+// Общий обработчик ошибок
+app.use((err, req, res, next) => {
   res.locals.message = err.message
   res.locals.error = req.app.get('env') === 'development' ? err : {}
-
-  // render the error page
   res.status(err.status || 500)
   res.render('error')
 })
