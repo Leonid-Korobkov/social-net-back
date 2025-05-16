@@ -54,16 +54,57 @@ const PostController = {
     const userId = req.user.userId
     const page = parseInt(req.query.page)
     const limit = parseInt(req.query.limit)
+    const feedType = req.query.feed || 'new' // По умолчанию показываем новые посты
     const skip = (page - 1) * limit
 
     try {
-      // Получаем общее количество постов
-      const totalPosts = await prisma.post.count()
+      // Базовые условия для запроса
+      let whereCondition = {}
+      let orderBy = { createdAt: 'desc' }
 
-      // Получаем посты с пагинацией
+      // Создаем условия запроса в зависимости от типа ленты
+      if (feedType === 'following') {
+        // Получаем список ID пользователей, на которых подписан текущий пользователь
+        const following = await prisma.follows.findMany({
+          where: { followerId: userId },
+          select: { followingId: true }
+        })
+        const followingIds = following.map(f => f.followingId).filter(Boolean)
+        
+        // Показываем посты только от пользователей, на которых подписан
+        whereCondition.authorId = { in: followingIds }
+      } 
+      else if (feedType === 'viewed') {
+        // Показываем только просмотренные посты
+        whereCondition.PostView = {
+          some: { userId }
+        }
+      }
+      else if (feedType === 'for-you') {
+        // Показываем посты, которые пользователь еще НЕ просматривал
+        whereCondition.PostView = {
+          none: { userId }
+        }
+        
+        // Добавляем фильтрацию по популярности (больше просмотров и лайков)
+        orderBy = [
+          { likeCount: 'desc' },
+          { viewCount: 'desc' },
+          { createdAt: 'desc' }
+        ]
+      }
+      // Для 'new' оставляем пустые условия, чтобы показать все посты
+
+      // Получаем общее количество постов с примененными фильтрами
+      const totalPosts = await prisma.post.count({
+        where: whereCondition
+      })
+
+      // Получаем посты с пагинацией и примененными фильтрами
       const posts = await prisma.post.findMany({
         skip: skip ? skip : 0,
         take: limit ? limit : undefined,
+        where: whereCondition,
         include: {
           likes: {
             include: {
@@ -77,16 +118,17 @@ const PostController = {
               }
             }
           },
-          comments: true
+          comments: true,
+          PostView: {
+            where: { userId }
+          }
         },
-        orderBy: {
-          createdAt: 'desc'
-        },
+        orderBy: orderBy,
       },
     )
 
       // Добавляем поля isFollowing и likedByUser
-      const postsWithLikesUserInfo = posts.map(({ likes, author, comments, ...post }) => (
+      const postsWithLikesUserInfo = posts.map(({ likes, author, comments, PostView, ...post }) => (
       {
         ...post,
         author: {
@@ -97,6 +139,7 @@ const PostController = {
         },
         likedByUser: likes.some(like => like.userId === userId),
         isFollowing: author.followers.length > 0,
+        viewed: PostView.length > 0
       }))
 
       // Устанавливаем заголовок с общим количеством постов
