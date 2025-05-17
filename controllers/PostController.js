@@ -142,6 +142,14 @@ const PostController = {
         viewed: PostView.length > 0
       }))
 
+      // Флаг "все просмотрено" для feedType 'for-you'
+      let allViewed = false
+      if (feedType === 'for-you') {
+        // Если всего непосмотренных постов 0 — значит все просмотрено
+        allViewed = totalPosts === 0
+      }
+      // Можно добавить аналогичную логику для других вкладок, если нужно
+
       // Устанавливаем заголовок с общим количеством постов
       res.setHeader('x-total-count', totalPosts.toString())
       res.setHeader('Access-Control-Expose-Headers', 'x-total-count')
@@ -149,6 +157,7 @@ const PostController = {
       const result = {
         data: postsWithLikesUserInfo,
         total: totalPosts,
+        allViewed, // новый флаг
       }
 
       res.json(result)
