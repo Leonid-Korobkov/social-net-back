@@ -73,11 +73,11 @@ model Post {
 }
 
 model PostView {
-  id     Int  @id @default(autoincrement())
-  user   User @relation(fields: [userId], references: [id])
-  userId Int
-  post   Post @relation(fields: [postId], references: [id])
-  postId Int
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    Int
   createdAt DateTime @default(now())
 
   @@unique([userId, postId])
@@ -116,6 +116,7 @@ model Comment {
   likes     CommentLike[]
   likeCount Int?          @default(0)
   createdAt DateTime      @default(now())
+  media     String[]      @default([])
 
   @@index([postId])
   @@index([userId])

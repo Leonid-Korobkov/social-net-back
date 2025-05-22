@@ -6,14 +6,9 @@ const PostController = {
     const { content, media } = req.body
     const userId = req.user.userId
 
-    if (!content) {
-      return res.status(400).json({ error: 'Все поля должны быть заполнены' })
-    }
-
     try {
       // Убедимся, что media является массивом
       const mediaArray = Array.isArray(media) ? media : []
-      
       
       const post = await prisma.post.create({
         data: {
