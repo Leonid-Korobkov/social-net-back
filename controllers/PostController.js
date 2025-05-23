@@ -84,6 +84,9 @@ const PostController = {
           { createdAt: 'desc' }
         ]
       }
+      else if (feedType === 'top') {
+        orderBy = { score: 'desc' };
+      }
       // Для 'new' оставляем пустые условия, чтобы показать все посты
 
       // Получаем общее количество постов с примененными фильтрами

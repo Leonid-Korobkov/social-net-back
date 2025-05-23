@@ -90,7 +90,20 @@ async function recalculateScores () {
 }
 
 // Если файл запущен напрямую, запускаем cron
-if (require.main === module) {
+// if (require.main === module) {
+//   cron.schedule('*/30 * * * *', async () => {
+//     console.log('Запуск пересчёта score для всех постов (cron)')
+//     try {
+//       await recalculateScores()
+//       console.log('Пересчёт завершён')
+//     } catch (e) {
+//       console.error('Ошибка при пересчёте:', e)
+//     }
+//   })
+//   console.log('node-cron: задача для пересчёта score запущена')
+// }
+
+function startScoreRecalculationCron () {
   cron.schedule('*/30 * * * *', async () => {
     console.log('Запуск пересчёта score для всех постов (cron)')
     try {
@@ -103,4 +116,4 @@ if (require.main === module) {
   console.log('node-cron: задача для пересчёта score запущена')
 }
 
-module.exports = { recalculateScores }
+module.exports = { recalculateScores, startScoreRecalculationCron }
