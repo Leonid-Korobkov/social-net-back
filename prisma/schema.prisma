@@ -67,6 +67,8 @@ model Post {
   PostView     PostView[]
   PostShare    PostShare[]
   idEdited     Boolean     @default(false)
+  score         Int         @default(0)
+  updatedScoreAt DateTime   @default(now())
 
   @@index([authorId])
   @@index([createdAt])

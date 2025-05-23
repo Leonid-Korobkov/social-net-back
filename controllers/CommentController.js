@@ -2,18 +2,28 @@ const { prisma } = require('../prisma/prisma-client')
 
 const CommentController = {
   async createComment (req, res) {
-    let { content, postId } = req.body
+    let { content, postId, media } = req.body
     postId = parseInt(postId)
     const userId = req.user.userId
 
-    if (!content || !postId) {
-      return res.status(400).json({ error: 'Все поля должны быть заполнены' })
+    if (
+      (!content || content.trim() === '') &&
+      (!media || !Array.isArray(media) || media.length === 0)
+    ) {
+      return res.status(400).json({ error: 'Комментарий не может быть пустым' })
     }
 
     try {
       // Создаем комментарий и увеличиваем commentCount
       const [comment, updatedPost] = await prisma.$transaction([
-        prisma.comment.create({ data: { postId, userId, content } }),
+        prisma.comment.create({
+          data: {
+            postId,
+            userId,
+            content,
+            media: Array.isArray(media) ? media : []
+          }
+        }),
         prisma.post.update({
           where: { id: postId },
           data: { commentCount: { increment: 1 } },
@@ -21,7 +31,7 @@ const CommentController = {
         })
       ])
 
-      return res.json({updatedPost, comment})
+      return res.json({ updatedPost, comment })
     } catch (error) {
       console.error('Error in createComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -100,7 +110,8 @@ const CommentController = {
 
       const commentsWithLikeInfo = comments.map(({ likes, ...comment }) => ({
         ...comment,
-        likedByUser: likes.some(like => like.userId === userId)
+        likedByUser: likes.some(like => like.userId === userId),
+        media: comment.media || []
       }))
 
       res.setHeader('x-total-count', totalComments.toString())

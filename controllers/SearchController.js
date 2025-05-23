@@ -126,7 +126,12 @@ const SearchController = {
               select: {
                 id: true,
                 title: true,
-                content: true
+                content: true,
+                author: {
+                  select: {
+                    userName: true
+                  }
+                }
               }
             },
             _count: {

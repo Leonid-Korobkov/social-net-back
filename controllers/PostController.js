@@ -76,15 +76,11 @@ const PostController = {
         }
       }
       else if (feedType === 'for-you') {
-        // Показываем посты, которые пользователь еще НЕ просматривал
-        whereCondition.PostView = {
-          none: { userId }
-        }
-        
-        // Добавляем фильтрацию по популярности (больше просмотров и лайков)
+        // Просто сортируем непосмотренные посты по score, updatedScoreAt и createdAt
+        whereCondition.PostView = { none: { userId } }
         orderBy = [
-          { likeCount: 'desc' },
-          { viewCount: 'desc' },
+          { score: 'desc' },
+          { updatedScoreAt: 'desc' },
           { createdAt: 'desc' }
         ]
       }
@@ -122,8 +118,14 @@ const PostController = {
       },
     )
 
+      // Если это лента for-you, сортируем посты по порядку в finalIds
+      let postsSorted = posts
+      if (feedType === 'for-you' && typeof finalIds !== 'undefined') {
+        postsSorted = finalIds.map(id => posts.find(p => p.id === id)).filter(Boolean)
+      }
+
       // Добавляем поля isFollowing и likedByUser
-      const postsWithLikesUserInfo = posts.map(({ likes, author, comments, PostView, ...post }) => (
+      const postsWithLikesUserInfo = postsSorted.map(({ likes, author, comments, PostView, ...post }) => (
       {
         ...post,
         author: {
@@ -134,7 +136,7 @@ const PostController = {
         },
         likedByUser: likes.some(like => like.userId === userId),
         isFollowing: author.followers.length > 0,
-        viewed: PostView.length > 0
+        viewed: PostView ? PostView.length > 0 : false
       }))
 
       // Флаг "все просмотрено" для feedType 'for-you'
@@ -143,7 +145,6 @@ const PostController = {
         // Если всего непосмотренных постов 0 — значит все просмотрено
         allViewed = totalPosts === 0
       }
-      // Можно добавить аналогичную логику для других вкладок, если нужно
 
       // Устанавливаем заголовок с общим количеством постов
       res.setHeader('x-total-count', totalPosts.toString())
@@ -152,7 +153,7 @@ const PostController = {
       const result = {
         data: postsWithLikesUserInfo,
         total: totalPosts,
-        allViewed, // новый флаг
+        allViewed, 
       }
 
       res.json(result)
