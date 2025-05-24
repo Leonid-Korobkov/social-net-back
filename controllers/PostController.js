@@ -68,6 +68,7 @@ const PostController = {
         
         // Показываем посты только от пользователей, на которых подписан
         whereCondition.authorId = { in: followingIds }
+        orderBy = { score: 'desc' }
       } 
       else if (feedType === 'viewed') {
         // Показываем только просмотренные посты
@@ -76,7 +77,7 @@ const PostController = {
         }
       }
       else if (feedType === 'for-you') {
-        // Просто сортируем непосмотренные посты по score, updatedScoreAt и createdAt
+        // Просто сортируем непросмотренные посты по score, updatedScoreAt и createdAt
         whereCondition.PostView = { none: { userId } }
         orderBy = [
           { score: 'desc' },
