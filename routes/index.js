@@ -211,4 +211,7 @@ router.get('/search', authenticateToken, SearchController.search)
 // Удаление медиафайла из Cloudinary
 router.delete('/media/delete', authenticateToken, PostController.deleteMedia)
 
+// Удаление пользователя
+router.delete('/users/:id', authenticateToken, UserController.deleteUser)
+
 module.exports = router

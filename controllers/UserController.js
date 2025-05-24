@@ -418,6 +418,41 @@ const UserController = {
       console.error('Error in getNewRandomImage', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере. Не удалось сгенерировать изображение' })
     }
+  },
+
+  async deleteUser(req, res) {
+    try {
+      const { confirmationText } = req.body
+      if (confirmationText !== 'Delete') {
+        return res.status(400).json({ errorMessage: 'Для удаления аккаунта введите Delete' })
+      }
+      const userId = parseInt(req.params.id)
+      const user = await prisma.user.findUnique({ where: { id: userId } })
+      if (!user) {
+        return res.status(404).json({ errorMessage: 'Пользователь не найден' })
+      }
+      // Каскадное удаление всех связанных данных
+      await prisma.$transaction([
+        prisma.commentLike.deleteMany({ where: { userId } }),
+        prisma.commentLike.deleteMany({ where: { comment: { userId } } }),
+        prisma.like.deleteMany({ where: { userId } }),
+        prisma.like.deleteMany({ where: { post: { authorId: userId } } }),
+        prisma.comment.deleteMany({ where: { userId } }),
+        prisma.comment.deleteMany({ where: { post: { authorId: userId } } }),
+        prisma.follows.deleteMany({ where: { followerId: userId } }),
+        prisma.follows.deleteMany({ where: { followingId: userId } }),
+        prisma.postView.deleteMany({ where: { userId } }),
+        prisma.postView.deleteMany({ where: { post: { authorId: userId } } }),
+        prisma.postShare.deleteMany({ where: { userId } }),
+        prisma.postShare.deleteMany({ where: { post: { authorId: userId } } }),
+        prisma.post.deleteMany({ where: { authorId: userId } }),
+        prisma.user.delete({ where: { id: userId } })
+      ])
+      res.status(200).json({ message: 'Аккаунт успешно удален' })
+    } catch (error) {
+      console.error('Ошибка при удалении пользователя:', error)
+      res.status(500).json({ errorMessage: 'Ошибка сервера при удалении аккаунта' })
+    }
   }
 }
 
