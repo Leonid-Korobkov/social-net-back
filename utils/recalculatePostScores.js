@@ -104,16 +104,19 @@ async function recalculateScores () {
 // }
 
 function startScoreRecalculationCron () {
-  cron.schedule('*/30 * * * *', async () => {
-    console.log('Запуск пересчёта score для всех постов (cron)')
-    try {
-      await recalculateScores()
-      console.log('Пересчёт завершён')
-    } catch (e) {
-      console.error('Ошибка при пересчёте:', e)
-    }
-  })
+  startCronTask()
+  cron.schedule('*/30 * * * *', startCronTask)
   console.log('node-cron: задача для пересчёта score запущена')
+}
+
+async function startCronTask () {
+  console.log('Запуск пересчёта score для всех постов (cron)')
+  try {
+    await recalculateScores()
+    console.log('Пересчёт завершён')
+  } catch (e) {
+    console.error('Ошибка при пересчёте:', e)
+  }
 }
 
 module.exports = { recalculateScores, startScoreRecalculationCron }
