@@ -79,7 +79,7 @@ const PostController = {
       else if (feedType === 'for-you') {
         // Просто сортируем непросмотренные посты по score, updatedScoreAt и createdAt
         whereCondition.PostView = { none: { userId } }
-        whereCondition.authorId = { none: { userId } }
+        whereCondition.authorId = { not: userId }
         orderBy = [
           { score: 'desc' },
           { updatedScoreAt: 'desc' },
