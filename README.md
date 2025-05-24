@@ -1,144 +1,147 @@
-# Социальная сеть (Backend)
+# Zling — Социальная сеть (Backend)
 
-Этот репозиторий содержит backend-часть приложения **Zling** — социальной сети, разработанной для создания и взаимодействия между пользователями. Backend предоставляет API для управления пользователями, постами, комментариями, подписками и обработкой данных.
+_API для современной социальной платформы Zling_
 
-Приложение использует PostgreSQL в качестве базы данных и Prisma ORM для взаимодействия с ней. Это обеспечивает производительность, надежность и удобство работы с данными.
+![last-commit](https://img.shields.io/github/last-commit/Leonid-Korobkov/social-net-back?style=flat&logo=git&logoColor=white&color=0080ff)
+![repo-top-language](https://img.shields.io/github/languages/top/Leonid-Korobkov/social-net-back?style=flat&color=0080ff)
+![repo-language-count](https://img.shields.io/github/languages/count/Leonid-Korobkov/social-net-back?style=flat&color=0080ff)
 
-## Описание проекта
-
-Backend **Zling** отвечает за следующие задачи:
-
-- Обработка аутентификации и авторизации пользователей.
-- Управление данными пользователей, их профилями и подписками.
-- Работа с публикациями: создание, редактирование, удаление постов.
-- Обработка комментариев и отметок "нравится".
-- Поддержка реального времени (если применимо).
-- Обработка ошибок и безопасное взаимодействие с клиентом.
-
-## Оптимизации производительности
-
-В приложении реализованы следующие оптимизации:
-
-1. **Оптимизация базы данных:**
-
-   - Индексы для часто используемых полей
-   - Пагинация для больших наборов данных
-   - Оптимизированные запросы с включением связанных данных
-
-2. **Оптимизация изображений:**
-   - Автоматическое сжатие загружаемых изображений
-   - Конвертация в WebP формат
-   - Хранение в Cloudinary с автоматической оптимизацией
+---
 
 ## Используемые технологии
 
-- **Node.js**: Среда выполнения для JavaScript.
-- **TypeScript**: Надстройка для JavaScript с поддержкой статической типизации.
-- **Prisma ORM**: Удобный инструмент для работы с базой данных.
-- **PostgreSQL**: Реляционная база данных.
-- **Express.js**: Минималистичный веб-фреймворк для Node.js.
-- **JWT**: JSON Web Tokens для аутентификации.
-- **bcrypt**: Для хэширования паролей.
-- **Cloudinary**: Для работы с изображениями.
+![Node.js](https://img.shields.io/badge/Node.js-339933.svg?style=flat&logo=Node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-000000.svg?style=flat&logo=Express&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6.svg?style=flat&logo=TypeScript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748.svg?style=flat&logo=Prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1.svg?style=flat&logo=PostgreSQL&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000.svg?style=flat&logo=JSON-Web-Tokens&logoColor=white)
+![bcryptjs](https://img.shields.io/badge/bcryptjs-000000.svg?style=flat)
+![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5.svg?style=flat&logo=Cloudinary&logoColor=white)
+![Multer](https://img.shields.io/badge/Multer-FFCA28.svg?style=flat)
+![Sharp](https://img.shields.io/badge/Sharp-00BFAE.svg?style=flat)
+![Docker](https://img.shields.io/badge/Docker-2496ED.svg?style=flat&logo=Docker&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000.svg?style=flat&logo=Vercel&logoColor=white)
+
+---
+
+## О проекте
+
+**Zling Backend** — это современный REST API для социальной сети, реализующий регистрацию, аутентификацию, управление пользователями, постами, комментариями, подписками и медиафайлами. Использует PostgreSQL и Prisma для надежного хранения данных, Cloudinary для работы с изображениями, а также поддерживает деплой через Docker и Vercel.
+
+---
+
+## Функционал
+
+- **Аутентификация и авторизация**
+  - JWT-токены, безопасное хранение паролей (bcryptjs)
+  - Регистрация и вход по email/паролю
+- **Пользователи**
+  - CRUD-профиля, подписки/отписки, аватары (генерация через jdenticon), биография, поиск
+- **Посты**
+  - Создание, редактирование, удаление, лента, лайки, изображения (Cloudinary, Sharp)
+- **Комментарии**
+  - Добавление, просмотр, удаление, лайки комментариев
+- **Подписки**
+  - Списки подписчиков и подписок, быстрый переход к профилю
+- **Медиа**
+  - Загрузка, оптимизация, хранение изображений через Cloudinary, поддержка drag-and-drop (Multer)
+- **Производительность**
+  - Индексы, пагинация, оптимизированные запросы, планируется кэширование через Redis
+- **Обработка ошибок**
+  - Глобальный обработчик ошибок, информативные ответы API
+- **Планировщик задач**
+  - Поддержка фоновых задач через node-cron (например, пересчет рейтингов постов)
+- **Логирование и мониторинг**
+  - Логирование запросов через morgan, debug
+
+---
 
 ## Структура проекта
 
-- **/src**: Основной код приложения.
-  - **/controllers**: Контроллеры для обработки запросов.
-  - **/services**: Логика работы с данными.
-  - **/routes**: Определение маршрутов API.
-  - **/prisma**: Настройки Prisma, включая схему базы данных.
-- **/prisma/schema.prisma**: Определение моделей данных.
-- **.env**: Конфигурация переменных окружения.
+- `/api` — точка входа для деплоя на Vercel/Serverless
+- `/controllers` — обработка HTTP-запросов (User, Post, Comment, Like, Follow и др.)
+- `/routes` — маршруты API
+- `/middleware` — мидлвары (авторизация, загрузка файлов и др.)
+- `/utils` — вспомогательные утилиты (например, пересчет рейтингов)
+- `/prisma` — схема и настройки базы данных, миграции
+- `/interfaces` — типы и интерфейсы (TypeScript)
+- `/uploads` — временное хранение файлов (если не используется Cloudinary)
+- `/views` — шаблоны ошибок (jade)
+- `DockerFile`, `docker-compose.yaml` — контейнеризация и оркестрация
 
-## Установка и запуск
+---
 
-1. **Клонирование репозитория**:
+## Быстрый старт
 
+1. **Клонируйте репозиторий:**
    ```bash
    git clone https://github.com/Leonid-Korobkov/social-net-back.git
    cd social-net-back
    ```
-
-2. **Установка зависимостей**:
-
+2. **Установите зависимости:**
    ```bash
    npm install
    ```
-
-3. **Настройка переменных окружения**:
-
-   Создайте файл `.env` в корневой директории и добавьте необходимые переменные. Пример содержимого:
-
-   ```env
-   DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/DATABASE_NAME
-   JWT_SECRET=your_jwt_secret
-   PORT=5000
-   REDIS_URL=redis://localhost:6379
-   CLOUDINARY_CLOUD_NAME=your_cloud_name
-   CLOUDINARY_API_KEY=your_api_key
-   CLOUDINARY_API_SECRET=your_api_secret
-   ```
-
-4. **Инициализация базы данных**:
-
-   С помощью Prisma выполните следующие команды:
-
-   - Синхронизация модели базы данных:
-
-     ```bash
-     npx prisma migrate dev
-     ```
-
-   - Генерация клиентских библиотек Prisma:
-     ```bash
-     npx prisma generate
-     ```
-
-   После выполнения этих шагов база данных будет готова к использованию.
-
-5. **Запуск Redis**:
-
+3. **Настройте переменные окружения:**
+   Создайте `.env` в корне (см. пример ниже).
+4. **Инициализируйте базу данных:**
    ```bash
-   redis-server
+   npx prisma migrate dev
+   npx prisma generate
    ```
-
-6. **Запуск сервера**:
-
+5. **Запустите сервер разработки:**
    ```bash
    npm run dev
    ```
+   Сервер будет доступен по адресу [http://localhost:4000](http://localhost:4000).
 
-   Сервер будет доступен по адресу `http://localhost:5000`.
+---
 
-## Как создать базу данных локально
+## Пример .env
 
-1. Убедитесь, что PostgreSQL установлен и запущен.
-2. Создайте новую базу данных:
-   ```sql
-   CREATE DATABASE social_net;
-   ```
-3. Обновите строку подключения `DATABASE_URL` в файле `.env`, указав имя базы данных и учетные данные PostgreSQL.
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/DATABASE_NAME
+JWT_SECRET=your_jwt_secret
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+ORIGIN_URL_DEV=http://localhost:3000
+ORIGIN_URL_PROD=your-prod-frontend-url
+```
+
+---
+
+## Скрипты
+
+- `npm run dev` — запуск в режиме разработки (nodemon, hot-reload)
+- `npm start` — запуск production-сервера (`api/index.js`)
+- `npm run build` — генерация Prisma client
+
+---
 
 ## Вклад в проект
 
-Вы можете предложить изменения или улучшения через pull request. Для этого:
+Pull requests приветствуются! Форкните репозиторий, создайте ветку с изменениями и отправьте PR.
 
-1. Сделайте форк репозитория.
-2. Создайте новую ветку:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-3. Внесите изменения и создайте pull request.
+---
 
 ## Благодарности
 
-- [Документация Prisma](https://www.prisma.io/docs/)
+- [Prisma](https://www.prisma.io/)
 - [PostgreSQL](https://www.postgresql.org/)
 - [Express.js](https://expressjs.com/)
-- [Redis](https://redis.io/)
 - [Cloudinary](https://cloudinary.com/)
+- [Vercel](https://vercel.com/)
 
-Для фронтенд-части проекта посетите репозиторий [social-net-front](https://github.com/Leonid-Korobkov/social-net-front).
+---
 
-Исследуйте приложение в открытом доступе по адресу [zling.up.railway.app](https://zling.up.railway.app/).
+## Frontend
+
+Для frontend-части проекта: [social-net-front](https://github.com/Leonid-Korobkov/social-net-front)
+
+---
+
+## Демо
+
+[https://zling.vercel.app](https://zling.vercel.app)
