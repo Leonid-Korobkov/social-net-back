@@ -88,7 +88,7 @@ const processMedia = async (req, res, next) => {
             {
               folder: `zling/${userId}`, // Папка пользователя
               resource_type: 'auto',
-              format: 'auto',
+              format: 'webp',
               invalidate: true,
               transformation: [
                   { quality: 'auto:best' },
