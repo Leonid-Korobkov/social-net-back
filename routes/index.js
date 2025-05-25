@@ -66,7 +66,7 @@ const optimizeImage = async (req, res, next) => {
         {
           folder: 'social-net',
           resource_type: 'auto',
-          format: 'webp',
+          format: 'auto',
           invalidate: true,
           transformation: [{ quality: 'auto:best' }, { fetch_format: 'auto' }]
         },
