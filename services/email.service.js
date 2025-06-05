@@ -14,7 +14,12 @@ class EmailService {
       },
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      rateDelta: 1000,
+      rateLimit: 5
     })
   }
 
@@ -33,26 +38,27 @@ class EmailService {
         subject: 'Zling - Подтверждение аккаунта',
         html: emailHtml,
         headers: {
-          'X-Priority': '1',
-          'X-MSMail-Priority': 'High',
-          Importance: 'high',
-          'X-Mailer': 'Zling Mailer',
-          'List-Unsubscribe': `<mailto:${process.env
-            .SMTP_FROM}?subject=unsubscribe>`,
-          Precedence: 'bulk'
+          'X-Mailer': 'Zling Mailer'
+        },
+        dsn: {
+          id: 'verification-email',
+          return: 'headers',
+          notify: ['failure', 'delay'],
+          recipient: process.env.SMTP_FROM
         }
       }
 
-      await this.transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          console.error('Error sending email:', error)
-        } else {
-          console.log('Email sent:', info.response)
-        }
-      })
+      const info = await this.transporter.sendMail(mailOptions)
+      console.log('Email sent:', info.response)
       return true
     } catch (error) {
       console.error('Error sending email:', error)
+      if (error.response) {
+        console.error('SMTP Response:', error.response)
+      }
+      if (error.responseCode) {
+        console.error('SMTP Response Code:', error.responseCode)
+      }
       return false
     }
   }
@@ -70,20 +76,27 @@ class EmailService {
         subject: 'Сброс пароля в Zling',
         html: emailHtml,
         headers: {
-          'X-Priority': '1',
-          'X-MSMail-Priority': 'High',
-          Importance: 'high',
-          'X-Mailer': 'Zling Mailer',
-          'List-Unsubscribe': `<mailto:${process.env
-            .SMTP_FROM}?subject=unsubscribe>`,
-          Precedence: 'bulk'
+          'X-Mailer': 'Zling Mailer'
+        },
+        dsn: {
+          id: 'password-reset-email',
+          return: 'headers',
+          notify: ['failure', 'delay'],
+          recipient: process.env.SMTP_FROM
         }
       }
 
-      await this.transporter.sendMail(mailOptions)
+      const info = await this.transporter.sendMail(mailOptions)
+      console.log('Email sent:', info.response)
       return true
     } catch (error) {
       console.error('Error sending email:', error)
+      if (error.response) {
+        console.error('SMTP Response:', error.response)
+      }
+      if (error.responseCode) {
+        console.error('SMTP Response Code:', error.responseCode)
+      }
       return false
     }
   }
