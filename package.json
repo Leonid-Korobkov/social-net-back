@@ -44,9 +44,11 @@
     "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@babel/register": "^7.27.1",
+    "@types/node": "^22.15.29",
     "dotenv": "^16.4.5",
     "nodemon": "^3.1.7",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "react-email": "4.0.16"
   },
   "keywords": [],
   "author": "",

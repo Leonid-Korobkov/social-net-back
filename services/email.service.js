@@ -50,7 +50,6 @@ class EmailService {
           console.log('Email sent:', info.response)
         }
       })
-      console.log('Письмо успешно отправлено', emailHtml)
       return true
     } catch (error) {
       console.error('Error sending email:', error)
