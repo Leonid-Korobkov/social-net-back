@@ -11,7 +11,30 @@ const {
 } = require('../utils/auth.utils')
 const { userCache } = require('../middleware/auth')
 const requestIp = require('request-ip')
-const emailExistence = require('email-existence')
+const dns = require('dns')
+const { promisify } = require('util')
+
+// Helper function to validate email format and check MX records
+const validateEmail = async (email) => {
+  const domain = email.split('@')[1]
+
+  try {
+    // Check MX records for the domain
+    const resolveMx = promisify(dns.resolveMx)
+    const mxRecords = await resolveMx(domain)
+    
+    if (!mxRecords || mxRecords.length === 0) {
+      throw new Error('Домен не имеет настроенных почтовых серверов')
+    }
+    
+    return true
+  } catch (error) {
+    if (error.code === 'ENOTFOUND') {
+      throw new Error('Домен не существует')
+    }
+    throw error
+  }
+}
 
 // Helper function for token generation and device info
 const generateTokensAndDeviceInfo = async (
@@ -96,17 +119,7 @@ const UserController = {
       const normalizedEmail = email.toLowerCase()
 
       // Проверяем существование email
-      await new Promise((resolve, reject) => {
-        emailExistence.check(normalizedEmail, (error, response) => {
-          if (error) {
-            reject(error)
-          } else if (!response) {
-            reject(new Error('Email не существует'))
-          } else {
-            resolve()
-          }
-        })
-      })
+      await validateEmail(normalizedEmail)
 
       const isExistUserEmail = await prisma.user.findFirst({
         where: {

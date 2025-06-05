@@ -19,7 +19,6 @@
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "debug": "~2.6.9",
-    "email-existence": "^0.1.6",
     "express": "~4.16.1",
     "express-rate-limit": "^7.5.0",
     "http-errors": "~1.6.3",
