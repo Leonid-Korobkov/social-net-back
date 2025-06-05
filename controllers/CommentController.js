@@ -4,7 +4,7 @@ const CommentController = {
   async createComment (req, res) {
     let { content, postId, media } = req.body
     postId = parseInt(postId)
-    const userId = req.user.userId
+    const userId = req.user.id
 
     if (
       (!content || content.trim() === '') &&
@@ -41,7 +41,7 @@ const CommentController = {
   async deleteComment (req, res) {
     let { id } = req.params
     id = parseInt(id)
-    const userId = req.user.userId
+    const userId = req.user.id
 
     try {
       const comment = await prisma.comment.findUnique({
@@ -77,7 +77,7 @@ const CommentController = {
 
   async getComments (req, res) {
     const { postId } = req.params
-    const userId = req.user.userId
+    const userId = req.user.id
     const page = parseInt(req.query.page)
     const limit = parseInt(req.query.limit)
     const skip = (page - 1) * limit

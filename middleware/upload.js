@@ -67,7 +67,7 @@ const processMedia = async (req, res, next) => {
   console.log(`Получено файлов: ${files.length}`)
 
   try {
-    const userId = req.user.userId
+    const userId = req.user.id
     console.log(`Загрузка для пользователя с ID: ${userId}`)
 
     const mediaPromises = files.map(async file => {

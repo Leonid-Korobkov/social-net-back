@@ -4,7 +4,7 @@ const LikeController = {
   async likePost (req, res) {
     let { postId } = req.body
     postId = parseInt(postId)
-    const userId = req.user.userId
+    const userId = req.user.id
 
     if (!postId) {
       return res.status(400).json({ error: 'Все поля должны быть заполнены' })
@@ -45,7 +45,7 @@ const LikeController = {
   async unlikePost (req, res) {
     let { postId } = req.body
     postId = parseInt(postId)
-    const userId = req.user.userId
+    const userId = req.user.id
 
     if (!postId) {
       return res
@@ -83,7 +83,7 @@ const LikeController = {
   },
 
   async getLikes (req, res) {
-    const currentUserId = req.user.userId
+    const currentUserId = req.user.id
     const { postId } = req.params
 
     try {
@@ -115,7 +115,7 @@ const LikeController = {
               _count: 'desc'
             }
           }
-        },
+        }
       })
 
       const sortedLikes = likes

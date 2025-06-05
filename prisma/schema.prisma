@@ -10,30 +10,36 @@ datasource db {
 }
 
 model User {
-  id              Int           @id @default(autoincrement())
-  email           String        @unique
-  password        String
-  name            String?
-  userName        String?       @unique
-  avatarUrl       String?
-  dateOfBirth     DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  bio             String?
-  location        String?
-  posts           Post[]
-  likes           Like[]
-  comments        Comment[]
-  followers       Follows[]     @relation("following")
-  following       Follows[]     @relation("followers")
-  commentLike     CommentLike[]
-  showEmail       Boolean       @default(false)
-  showBio         Boolean       @default(true)
-  showLocation    Boolean       @default(true)
-  showDateOfBirth Boolean       @default(true)
-  reduceAnimation Boolean       @default(false)
-  PostView        PostView[]
-  PostShare       PostShare[]
+  id                  Int                 @id @default(autoincrement())
+  email               String              @unique
+  password            String
+  name                String?
+  userName            String?             @unique
+  avatarUrl           String?
+  dateOfBirth         DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  bio                 String?
+  location            String?
+  posts               Post[]
+  likes               Like[]
+  comments            Comment[]
+  followers           Follows[]           @relation("following")
+  following           Follows[]           @relation("followers")
+  commentLike         CommentLike[]
+  showEmail           Boolean             @default(false)
+  showBio             Boolean             @default(true)
+  showLocation        Boolean             @default(true)
+  showDateOfBirth     Boolean             @default(true)
+  reduceAnimation     Boolean             @default(false)
+  PostView            PostView[]
+  PostShare           PostShare[]
+  emailVerifications  EmailVerification[]
+  refreshTokens       RefreshToken[]
+  isEmailVerified     Boolean             @default(false)
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int                 @default(0)
+  lockedUntil         DateTime?
 
   @@index([email])
   @@index([name])
@@ -51,24 +57,24 @@ model Follows {
 }
 
 model Post {
-  id           Int         @id @default(autoincrement())
-  title        String?
-  content      String
-  author       User        @relation(fields: [authorId], references: [id])
-  authorId     Int
-  likes        Like[]
-  comments     Comment[]
-  likeCount    Int?        @default(0)
-  commentCount Int?        @default(0)
-  viewCount    Int         @default(0)
-  shareCount   Int         @default(0)
-  media        String[]    @default([])
-  createdAt    DateTime    @default(now())
-  PostView     PostView[]
-  PostShare    PostShare[]
-  idEdited     Boolean     @default(false)
-  score         Int         @default(0)
-  updatedScoreAt DateTime   @default(now())
+  id             Int         @id @default(autoincrement())
+  title          String?
+  content        String
+  author         User        @relation(fields: [authorId], references: [id])
+  authorId       Int
+  likes          Like[]
+  comments       Comment[]
+  likeCount      Int?        @default(0)
+  commentCount   Int?        @default(0)
+  viewCount      Int         @default(0)
+  shareCount     Int         @default(0)
+  media          String[]    @default([])
+  createdAt      DateTime    @default(now())
+  PostView       PostView[]
+  PostShare      PostShare[]
+  idEdited       Boolean     @default(false)
+  score          Int         @default(0)
+  updatedScoreAt DateTime    @default(now())
 
   @@index([authorId])
   @@index([createdAt])
@@ -137,4 +143,28 @@ model CommentLike {
   @@index([userId])
   @@index([commentId])
   @@index([createdAt])
+}
+
+model EmailVerification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  token            String   @unique
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceInfo       String? // Browser, OS, device type, ip
+  lastUsedAt       DateTime @default(now())
+  isCurrentSession Boolean  @default(false)
+
+  @@index([userId])
+  @@index([lastUsedAt])
 }

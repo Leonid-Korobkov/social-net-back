@@ -4,7 +4,7 @@ const cloudinary = require('cloudinary').v2
 const PostController = {
   async createPost (req, res) {
     const { content, media } = req.body
-    const userId = req.user.userId
+    const userId = req.user.id
 
     try {
       // Убедимся, что media является массивом
@@ -46,7 +46,7 @@ const PostController = {
     }
   },
   async getAllPosts (req, res) {
-    const userId = req.user.userId
+    const userId = req.user.id
     const page = parseInt(req.query.page)
     const limit = parseInt(req.query.limit)
     const feedType = req.query.feed || 'new' // По умолчанию показываем новые посты
@@ -173,7 +173,7 @@ const PostController = {
     }
   },
   async getPostsByUserId (req, res) {
-    const currentUser = req.user.userId
+    const currentUser = req.user.id
     const params = req.params
     let userId = params.userId
     const page = parseInt(req.query.page)
@@ -261,7 +261,7 @@ const PostController = {
   },
   async getPostById (req, res) {
     const { id } = req.params
-    const userId = req.user.userId
+    const userId = req.user.id
 
     try {
       const post = await prisma.post.findUnique({
@@ -314,7 +314,7 @@ const PostController = {
   async deletePost (req, res) {
     let { id } = req.params
     id = parseInt(id)
-    const userId = req.user.userId
+    const userId = req.user.id
 
     try {
       const post = await prisma.post.findUnique({
@@ -344,7 +344,7 @@ const PostController = {
   },
   async incrementViewCount(req, res) {
     const { id } = req.params
-    const userId = req.user.userId
+    const userId = req.user.id
 
     try {
       // Проверяем, смотрел ли пользователь уже этот пост
@@ -377,7 +377,7 @@ const PostController = {
   },
   async incrementShareCount(req, res) {
     const { id } = req.params
-    const userId = req.user.userId
+    const userId = req.user.id
 
     try {
       // Проверяем, делился ли пользователь уже этим постом
@@ -409,7 +409,7 @@ const PostController = {
     }
   },
   async incrementViewsBatch(req, res) {
-    const userId = req.user.userId
+    const userId = req.user.id
     const { ids } = req.body
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: 'ids должен быть непустым массивом' })
@@ -444,7 +444,7 @@ const PostController = {
   async updatePost(req, res) {
     const { id } = req.params
     const { content, media } = req.body
-    const userId = req.user.userId
+    const userId = req.user.id
 
     if (!content) {
       return res.status(400).json({ error: 'Контент не может быть пустым' })

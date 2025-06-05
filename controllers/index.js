@@ -1,4 +1,5 @@
 const UserController = require('./UserController')
+const OpenGraphController = require('./OpenGraphController')
 const PostController = require('./PostController')
 const CommentController = require('./CommentController')
 const LikeController = require('./LikeController')
@@ -8,6 +9,7 @@ const SearchController = require('./SearchController')
 
 module.exports = {
   UserController,
+  OpenGraphController,
   PostController,
   CommentController,
   LikeController,

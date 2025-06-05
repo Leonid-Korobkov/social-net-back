@@ -1,8 +1,8 @@
 const express = require('express')
 const router = express.Router()
-const multer = require('multer')
 const sharp = require('sharp')
 const cloudinary = require('cloudinary').v2
+const emailExistence = require('email-existence')
 
 const {
   UserController,
@@ -11,9 +11,12 @@ const {
   LikeController,
   FollowController,
   CommentLikeController,
-  SearchController
+  SearchController,
+  OpenGraphController
 } = require('../controllers')
-const { authenticateToken } = require('../middleware/auth')
+
+const { authenticateToken, loginLimiter } = require('../middleware/auth')
+const { verifyOpenGraphPath } = require('../middleware/opengraph-auth')
 const {
   uploadMultiple,
   processMedia,
@@ -26,31 +29,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 })
-
-// Middleware для кэширования
-const cacheControl = (req, res, next) => {
-  // Для GET запросов к статическим ресурсам (изображения, аватары)
-  if (
-    req.method === 'GET' &&
-    (req.url.includes('/uploads/') || req.url.includes('cloudinary'))
-  ) {
-    res.set('Cache-Control', 'public, max-age=31536000') // 1 год
-  } else if (req.method === 'GET') {
-    // Для GET запросов к API данных
-    res.set('Cache-Control', 'no-cache, must-revalidate, max-age=0')
-    res.set('Pragma', 'no-cache')
-    res.set('Expires', '0')
-  } else {
-    // Для POST, PUT, DELETE запросов
-    res.set(
-      'Cache-Control',
-      'no-store, no-cache, must-revalidate, proxy-revalidate'
-    )
-    res.set('Pragma', 'no-cache')
-    res.set('Expires', '0')
-  }
-  next()
-}
 
 // Middleware для оптимизации изображений
 const optimizeImage = async (req, res, next) => {
@@ -87,8 +65,20 @@ const optimizeImage = async (req, res, next) => {
 }
 
 // Маршрутизация для пользователя
-router.post('/register', UserController.register)
-router.post('/login', UserController.login)
+router.post('/auth/register', UserController.register)
+router.post('/auth/verify-email', UserController.verifyEmail)
+router.post('/auth/resend-verification', UserController.resendVerification)
+router.post('/auth/login', loginLimiter, UserController.login)
+router.get('/auth/refresh', UserController.refreshToken)
+router.post('/auth/logout', UserController.logout)
+router.post(
+  '/auth/logout-all',
+  authenticateToken,
+  UserController.logoutAllDevices
+)
+// router.post('/auth/forgot-password', UserController.forgotPassword)
+// router.post('/auth/reset-password', UserController.resetPassword)
+
 router.get('/current', authenticateToken, UserController.currentUser)
 router.get(
   '/users/getRandomImage',
@@ -213,5 +203,49 @@ router.delete('/media/delete', authenticateToken, PostController.deleteMedia)
 
 // Удаление пользователя
 router.delete('/users/:id', authenticateToken, UserController.deleteUser)
+
+// Маршруты для OpenGraph данных
+router.get(
+  '/og/post/:id',
+  verifyOpenGraphPath,
+  OpenGraphController.getPostData
+)
+
+router.get(
+  '/og/user/:username',
+  verifyOpenGraphPath,
+  OpenGraphController.getUserData
+)
+
+// Тестовый эндпоинт для проверки существования email
+router.get('/test/check-email', async (req, res) => {
+  const { email } = req.body
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email не указан' })
+  }
+
+  try {
+    await new Promise((resolve, reject) => {
+      emailExistence.check(email, (error, response) => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve(response)
+        }
+      })
+    })
+    
+    res.json({ 
+      exists: true,
+      message: 'Email существует'
+    })
+  } catch (error) {
+    res.json({ 
+      exists: false,
+      message: 'Email не существует или произошла ошибка при проверке'
+    })
+  }
+})
 
 module.exports = router

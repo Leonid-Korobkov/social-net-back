@@ -2,8 +2,8 @@ const { prisma } = require('../prisma/prisma-client')
 
 const CommentLikeController = {
   async toggleLike (req, res) {
-    const commentId = parseInt(req.params.commentId);
-    const userId = req.user.userId
+    const commentId = parseInt(req.params.commentId)
+    const userId = req.user.id
 
     try {
       const comment = await prisma.comment.findUnique({

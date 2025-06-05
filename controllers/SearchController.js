@@ -4,7 +4,7 @@ const SearchController = {
   async search (req, res) {
     try {
       const { query, type = 'all', page = 1, limit = 10 } = req.query
-      const currentUserId = req.user.userId
+      const currentUserId = req.user.id
       const skip = (page - 1) * limit
 
       if (!query) {

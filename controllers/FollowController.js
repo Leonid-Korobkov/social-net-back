@@ -3,7 +3,7 @@ const { prisma } = require('../prisma/prisma-client')
 const FollowController = {
   async followUser (req, res) {
     let { followingId } = req.body
-    const userId = req.user.userId
+    const userId = req.user.id
 
     let username
     let userWithUsername
@@ -60,7 +60,7 @@ const FollowController = {
 
   async unfollowUser (req, res) {
     let { followingId } = req.body
-    const userId = req.user.userId
+    const userId = req.user.id
 
     let username
     let userWithUsername
