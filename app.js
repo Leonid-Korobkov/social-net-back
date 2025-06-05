@@ -10,6 +10,12 @@ require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 4000
 
+// Настройка доверия прокси
+// Если приложение работает за прокси (например, на Render.com)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1) // Доверяем первому прокси
+}
+
 const { startScoreRecalculationCron } = require('./utils/recalculatePostScores')
 
 var corsOptions = {

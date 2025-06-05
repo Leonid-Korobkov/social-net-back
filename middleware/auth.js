@@ -6,8 +6,14 @@ const NodeCache = require('node-cache')
 // Rate limiter для защиты от брутфорса
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 минут
-  max: 500, // 5 попыток
-  message: { error: 'Слишком много попыток входа. Попробуйте позже.' }
+  max: 5, // 5 попыток
+  message: { error: 'Слишком много попыток входа. Попробуйте позже.' },
+  standardHeaders: true, // Возвращаем RateLimit-* заголовки
+  legacyHeaders: false, // Отключаем X-RateLimit-* заголовки
+  // Используем IP из X-Forwarded-For, если приложение за прокси
+  keyGenerator: (req) => {
+    return req.headers['x-forwarded-for']?.split(',')[0] || req.ip
+  }
 })
 
 // Cache user data for 15 minutes
