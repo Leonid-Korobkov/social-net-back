@@ -2,7 +2,6 @@ const express = require('express')
 const router = express.Router()
 const sharp = require('sharp')
 const cloudinary = require('cloudinary').v2
-const emailExistence = require('email-existence')
 
 const {
   UserController,
@@ -216,36 +215,5 @@ router.get(
   verifyOpenGraphPath,
   OpenGraphController.getUserData
 )
-
-// Тестовый эндпоинт для проверки существования email
-router.get('/test/check-email', async (req, res) => {
-  const { email } = req.body
-  
-  if (!email) {
-    return res.status(400).json({ error: 'Email не указан' })
-  }
-
-  try {
-    await new Promise((resolve, reject) => {
-      emailExistence.check(email, (error, response) => {
-        if (error) {
-          reject(error)
-        } else {
-          resolve(response)
-        }
-      })
-    })
-    
-    res.json({ 
-      exists: true,
-      message: 'Email существует'
-    })
-  } catch (error) {
-    res.json({ 
-      exists: false,
-      message: 'Email не существует или произошла ошибка при проверке'
-    })
-  }
-})
 
 module.exports = router
