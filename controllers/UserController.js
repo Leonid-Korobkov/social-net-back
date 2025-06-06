@@ -87,14 +87,25 @@ const generateTokensAndDeviceInfo = async (
   }
 
   // Устанавливаем HTTP-only cookie
+  console.log('Setting refresh token cookie with options:', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/'
+  })
+  console.log('Request headers:', req.headers)
+  console.log('Response headers before cookie:', res.getHeaders())
+  
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: true,
     sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: '/',
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/'
   })
+  
+  console.log('Response headers after cookie:', res.getHeaders())
 
   return {
     accessToken,
@@ -400,34 +411,37 @@ const UserController = {
 
   async logout(req, res) {
     const { refreshToken } = req.cookies
+    console.log('Logout - Current cookies:', req.cookies)
+    console.log('Logout - Request headers:', req.headers)
 
     try {
       if (refreshToken) {
-        // First check if the token exists
-        const existingToken = await prisma.refreshToken.findUnique({
+        console.log('Attempting to delete refresh token from database')
+        await prisma.refreshToken.delete({
           where: { token: refreshToken }
         })
-
-        // Only delete if the token exists
-        if (existingToken) {
-          await prisma.refreshToken.delete({
-            where: { token: refreshToken }
-          })
-        }
+        console.log('Successfully deleted refresh token from database')
       }
 
       // Очистить cookie с теми же настройками
+      console.log('Clearing refresh token cookie with options:', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        path: '/'
+      })
+      
       res.clearCookie('refreshToken', {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        path: '/',
-        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+        path: '/'
       })
-
+      
+      console.log('Response headers after clearing cookie:', res.getHeaders())
       res.json({ message: 'Успешный выход из системы' })
     } catch (error) {
-      console.error('Error in logout', error)
+      console.error('Error in logout:', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
