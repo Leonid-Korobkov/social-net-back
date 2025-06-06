@@ -87,25 +87,24 @@ const generateTokensAndDeviceInfo = async (
   }
 
   // Устанавливаем HTTP-only cookie
-  console.log('Setting refresh token cookie with options:', {
+  const cookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: 'none',
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/'
-  })
+    path: '/',
+    domain: '.onrender.com' // Добавляем домен для production
+  }
+  
+  console.log('Setting refresh token cookie with options:', cookieOptions)
   console.log('Request headers:', req.headers)
   console.log('Response headers before cookie:', res.getHeaders())
+  console.log('Origin:', req.headers.origin)
   
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/'
-  })
+  res.cookie('refreshToken', refreshToken, cookieOptions)
   
   console.log('Response headers after cookie:', res.getHeaders())
+  console.log('Set-Cookie header:', res.getHeader('Set-Cookie'))
 
   return {
     accessToken,
@@ -413,6 +412,7 @@ const UserController = {
     const { refreshToken } = req.cookies
     console.log('Logout - Current cookies:', req.cookies)
     console.log('Logout - Request headers:', req.headers)
+    console.log('Logout - Origin:', req.headers.origin)
 
     try {
       if (refreshToken) {
@@ -423,22 +423,20 @@ const UserController = {
         console.log('Successfully deleted refresh token from database')
       }
 
-      // Очистить cookie с теми же настройками
-      console.log('Clearing refresh token cookie with options:', {
+      const cookieOptions = {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        path: '/'
-      })
+        path: '/',
+        domain: '.onrender.com' // Добавляем домен для production
+      }
+
+      console.log('Clearing refresh token cookie with options:', cookieOptions)
       
-      res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        path: '/'
-      })
+      res.clearCookie('refreshToken', cookieOptions)
       
       console.log('Response headers after clearing cookie:', res.getHeaders())
+      console.log('Set-Cookie header:', res.getHeader('Set-Cookie'))
       res.json({ message: 'Успешный выход из системы' })
     } catch (error) {
       console.error('Error in logout:', error)
