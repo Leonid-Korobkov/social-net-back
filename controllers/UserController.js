@@ -91,8 +91,9 @@ const generateTokensAndDeviceInfo = async (
     httpOnly: true,
     secure: true,
     sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/'
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+    domain: process.env.NODE_ENV === 'production' ? '.render.com' : undefined // Добавляем домен для production
   })
 
   return {
@@ -412,7 +413,8 @@ const UserController = {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        path: '/'
+        path: '/',
+        domain: process.env.NODE_ENV === 'production' ? '.render.com' : undefined
       })
 
       res.json({ message: 'Успешный выход из системы' })
