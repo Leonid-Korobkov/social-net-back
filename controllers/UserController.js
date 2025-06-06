@@ -87,24 +87,13 @@ const generateTokensAndDeviceInfo = async (
   }
 
   // Устанавливаем HTTP-only cookie
-  const cookieOptions = {
+  res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: true,
     sameSite: 'none',
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/',
-    domain: '.onrender.com' // Добавляем домен для production
-  }
-  
-  console.log('Setting refresh token cookie with options:', cookieOptions)
-  console.log('Request headers:', req.headers)
-  console.log('Response headers before cookie:', res.getHeaders())
-  console.log('Origin:', req.headers.origin)
-  
-  res.cookie('refreshToken', refreshToken, cookieOptions)
-  
-  console.log('Response headers after cookie:', res.getHeaders())
-  console.log('Set-Cookie header:', res.getHeader('Set-Cookie'))
+    path: '/'
+  })
 
   return {
     accessToken,
@@ -410,36 +399,33 @@ const UserController = {
 
   async logout(req, res) {
     const { refreshToken } = req.cookies
-    console.log('Logout - Current cookies:', req.cookies)
-    console.log('Logout - Request headers:', req.headers)
-    console.log('Logout - Origin:', req.headers.origin)
 
     try {
       if (refreshToken) {
-        console.log('Attempting to delete refresh token from database')
-        await prisma.refreshToken.delete({
+        // First check if the token exists
+        const existingToken = await prisma.refreshToken.findUnique({
           where: { token: refreshToken }
         })
-        console.log('Successfully deleted refresh token from database')
+
+        // Only delete if the token exists
+        if (existingToken) {
+          await prisma.refreshToken.delete({
+            where: { token: refreshToken }
+          })
+        }
       }
 
-      const cookieOptions = {
+      // Clear cookie regardless of whether token existed or not
+      res.clearCookie('refreshToken', {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
         path: '/',
-        domain: '.onrender.com' // Добавляем домен для production
-      }
+      })
 
-      console.log('Clearing refresh token cookie with options:', cookieOptions)
-      
-      res.clearCookie('refreshToken', cookieOptions)
-      
-      console.log('Response headers after clearing cookie:', res.getHeaders())
-      console.log('Set-Cookie header:', res.getHeader('Set-Cookie'))
       res.json({ message: 'Успешный выход из системы' })
     } catch (error) {
-      console.error('Error in logout:', error)
+      console.error('Error in logout', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
