@@ -19,13 +19,31 @@ if (process.env.NODE_ENV === 'production') {
 const { startScoreRecalculationCron } = require('./utils/recalculatePostScores')
 
 var corsOptions = {
-  // При NODE_ENV=production используем продакшен-адрес, иначе — локальный
   origin: [process.env.ORIGIN_URL_PROD, process.env.ORIGIN_URL_DEV],
-  credentials: true, // разрешить отправку cookie/заголовка авторизации
-  optionsSuccessStatus: 200 // код ответа для IE/старых браузеров (по умолчанию 204)
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200
 }
 
 app.use(cors(corsOptions))
+
+// Добавляем middleware для установки secure cookies
+app.use((req, res, next) => {
+  // Устанавливаем заголовки для работы с куками в Safari
+  res.header('Access-Control-Allow-Credentials', 'true')
+  res.header('Access-Control-Allow-Origin', req.headers.origin)
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With')
+  
+  // Для preflight запросов
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200)
+  } else {
+    next()
+  }
+})
 
 app.use(logger('dev'))
 app.use(express.json())
