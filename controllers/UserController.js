@@ -403,9 +403,17 @@ const UserController = {
 
     try {
       if (refreshToken) {
-        await prisma.refreshToken.delete({
+        // First check if the token exists
+        const existingToken = await prisma.refreshToken.findUnique({
           where: { token: refreshToken }
         })
+
+        // Only delete if the token exists
+        if (existingToken) {
+          await prisma.refreshToken.delete({
+            where: { token: refreshToken }
+          })
+        }
       }
 
       // Очистить cookie с теми же настройками
