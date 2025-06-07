@@ -89,10 +89,11 @@ const generateTokensAndDeviceInfo = async (
   // Устанавливаем HTTP-only cookie
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/'
+    secure: false,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+    domain: process.env.NODE_ENV === 'production' ? 'zling.vercel.app' : undefined // Указываем домен фронтенда
   })
 
   return {
@@ -415,12 +416,13 @@ const UserController = {
         }
       }
 
-      // Clear cookie regardless of whether token existed or not
+      // Очищаем кук с теми же настройками
       res.clearCookie('refreshToken', {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: false,
+        sameSite: 'lax',
         path: '/',
+        domain: process.env.NODE_ENV === 'production' ? 'zling.vercel.app' : undefined
       })
 
       res.json({ message: 'Успешный выход из системы' })
