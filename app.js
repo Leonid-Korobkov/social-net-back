@@ -16,7 +16,7 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1) // Доверяем первому прокси
 }
 
-const { startScoreRecalculationCron } = require('./utils/recalculatePostScores')
+// const { startScoreRecalculationCron } = require('./utils/recalculatePostScores')
 
 var corsOptions = {
   // При NODE_ENV=production используем продакшен-адрес, иначе — локальный
@@ -48,7 +48,7 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
   // Запускаем задачу cron после старта сервера
-  startScoreRecalculationCron()
+  // startScoreRecalculationCron()
 })
 
 // Cоздание директории для картинок, если ее не существует

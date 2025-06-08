@@ -4,9 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -40,6 +40,7 @@ model User {
   lastLoginAt         DateTime?
   failedLoginAttempts Int                 @default(0)
   lockedUntil         DateTime?
+  interests           UserInterest[]
 
   @@index([email])
   @@index([name])
@@ -57,24 +58,25 @@ model Follows {
 }
 
 model Post {
-  id             Int         @id @default(autoincrement())
+  id             Int            @id @default(autoincrement())
   title          String?
   content        String
-  author         User        @relation(fields: [authorId], references: [id])
+  author         User           @relation(fields: [authorId], references: [id])
   authorId       Int
   likes          Like[]
   comments       Comment[]
-  likeCount      Int?        @default(0)
-  commentCount   Int?        @default(0)
-  viewCount      Int         @default(0)
-  shareCount     Int         @default(0)
-  media          String[]    @default([])
-  createdAt      DateTime    @default(now())
+  likeCount      Int?           @default(0)
+  commentCount   Int?           @default(0)
+  viewCount      Int            @default(0)
+  shareCount     Int            @default(0)
+  media          String[]       @default([])
+  createdAt      DateTime       @default(now())
   PostView       PostView[]
   PostShare      PostShare[]
-  idEdited       Boolean     @default(false)
-  score          Int         @default(0)
-  updatedScoreAt DateTime    @default(now())
+  idEdited       Boolean        @default(false)
+  score          Int            @default(0)
+  updatedScoreAt DateTime       @default(now())
+  categories     PostCategory[]
 
   @@index([authorId])
   @@index([createdAt])
@@ -167,4 +169,27 @@ model RefreshToken {
 
   @@index([userId])
   @@index([lastUsedAt])
+}
+
+model PostCategory {
+  id           Int            @id @default(autoincrement())
+  name         String         @unique
+  confidence   Float          @default(1.0)
+  posts        Post[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  UserInterest UserInterest[]
+}
+
+model UserInterest {
+  id         Int          @id @default(autoincrement())
+  userId     Int
+  categoryId Int
+  weight     Float        @default(1.0)
+  user       User         @relation(fields: [userId], references: [id])
+  category   PostCategory @relation(fields: [categoryId], references: [id])
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([userId, categoryId])
 }

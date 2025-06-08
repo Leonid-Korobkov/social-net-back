@@ -1,5 +1,6 @@
 const { prisma } = require('../prisma/prisma-client')
 const cloudinary = require('cloudinary').v2
+const ContentAnalysisService = require('../services/ml/ContentAnalysisService')
 
 const PostController = {
   async createPost (req, res) {
@@ -7,6 +8,9 @@ const PostController = {
     const userId = req.user.id
 
     try {
+      // Анализируем контент и получаем категории
+      const categories = await ContentAnalysisService.predictCategories(content)
+      
       // Убедимся, что media является массивом
       const mediaArray = Array.isArray(media) ? media : []
       
@@ -14,8 +18,14 @@ const PostController = {
         data: {
           content,
           authorId: userId,
-          media: mediaArray, // Гарантированно передаем массив
-          imageUrl: req.file?.cloudinaryUrl || undefined
+          media: mediaArray,
+          imageUrl: req.file?.cloudinaryUrl || undefined,
+          categories: {
+            create: categories.map(cat => ({
+              name: cat.name,
+              confidence: cat.confidence
+            }))
+          }
         },
         select: {
           id: true,
@@ -27,7 +37,8 @@ const PostController = {
           shareCount: true,
           title: true,
           viewCount: true,
-          media: true, // Выбираем media из созданного поста
+          media: true,
+          categories: true,
           author: {
             select: {
               id: true,
@@ -46,124 +57,302 @@ const PostController = {
     }
   },
   async getAllPosts (req, res) {
-    const userId = req.user.id
-    const page = parseInt(req.query.page)
-    const limit = parseInt(req.query.limit)
-    const feedType = req.query.feed || 'new' // По умолчанию показываем новые посты
-    const skip = (page - 1) * limit
-
     try {
-      // Базовые условия для запроса
-      let whereCondition = {}
-      let orderBy = { createdAt: 'desc' }
+      const { feedType = 'new', page = 1, limit = 10 } = req.query;
+      const userId = req.user?.id;
+      const skip = (page - 1) * limit;
 
-      // Создаем условия запроса в зависимости от типа ленты
-      if (feedType === 'following') {
-        // Получаем список ID пользователей, на которых подписан текущий пользователь
-        const following = await prisma.follows.findMany({
-          where: { followerId: userId },
-          select: { followingId: true }
-        })
-        const followingIds = following.map(f => f.followingId).filter(Boolean)
-        
-        // Показываем посты только от пользователей, на которых подписан
-        whereCondition.authorId = { in: followingIds }
-        orderBy = [
-          { score: 'desc' },
-          { createdAt: 'desc' }
-        ]
-      } 
-      else if (feedType === 'viewed') {
-        // Показываем только просмотренные посты
-        whereCondition.PostView = {
-          some: { userId }
-        }
-      }
-      else if (feedType === 'for-you') {
-        // Просто сортируем непросмотренные посты по score, updatedScoreAt и createdAt
-        whereCondition.PostView = { none: { userId } }
-        whereCondition.authorId = { not: userId }
-        orderBy = [
-          { score: 'desc' },
-          { createdAt: 'desc' }
-        ]
-      }
-      else if (feedType === 'top') {
-        orderBy = [
-          { score: 'desc' },
-          { createdAt: 'desc' }
-        ]
-      }
-      // Для 'new' оставляем пустые условия, чтобы показать все посты
+      let posts;
+      let total;
 
-      // Получаем общее количество постов с примененными фильтрами
-      const totalPosts = await prisma.post.count({
-        where: whereCondition
-      })
+      switch (feedType) {
+        case 'for-you':
+          if (!userId) {
+            return res.status(401).json({ error: 'Требуется авторизация' });
+          }
 
-      // Получаем посты с пагинацией и примененными фильтрами
-      const posts = await prisma.post.findMany({
-        skip: skip ? skip : 0,
-        take: limit ? limit : undefined,
-        where: whereCondition,
-        include: {
-          likes: {
+          // Получаем интересы пользователя
+          const userInterests = await prisma.userInterest.findMany({
+            where: { userId },
+            include: { category: true },
+            orderBy: { weight: 'desc' }
+          });
+
+          // Получаем ID категорий, которые интересуют пользователя
+          const categoryIds = userInterests.map(interest => interest.categoryId);
+
+          // Получаем посты с учетом интересов пользователя
+          posts = await prisma.post.findMany({
+            where: {
+              categories: {
+                some: {
+                  id: {
+                    in: categoryIds
+                  }
+                }
+              }
+            },
             include: {
-              user: true
-            }
-          },
-          author: {
-            include: {
-              followers: {
-                where: { followerId: userId }
+              author: {
+                select: {
+                  id: true,
+                  userName: true,
+                  avatarUrl: true,
+                }
+              },
+              categories: true,
+              likes: true,
+              comments: true,
+              PostView: true
+            },
+            orderBy: [
+              { createdAt: 'desc' }
+            ],
+            skip,
+            take: +limit
+          });
+
+          total = await prisma.post.count({
+            where: {
+              categories: {
+                some: {
+                  id: {
+                    in: categoryIds
+                  }
+                }
               }
             }
-          },
-          comments: true,
-          PostView: {
-            where: { userId }
-          }
-        },
-        orderBy: orderBy,
-      },
-    )
+          });
 
-      // Если это лента for-you, сортируем посты по порядку в finalIds
-      let postsSorted = posts
-      if (feedType === 'for-you' && typeof finalIds !== 'undefined') {
-        postsSorted = finalIds.map(id => posts.find(p => p.id === id)).filter(Boolean)
+          // Добавляем информацию о просмотрах и лайках
+          posts = posts.map(post => ({
+            ...post,
+            likedByUser: post.likes.some(like => like.userId === userId),
+            isFollowing: false, // Можно добавить проверку подписки
+            viewed: post.views.some(view => view.userId === userId),
+            likesCount: post.likes.length,
+            commentsCount: post.comments.length,
+            viewsCount: post.views.length
+          }));
+
+          break;
+
+        case 'following':
+          // Получаем список ID пользователей, на которых подписан текущий пользователь
+          const following = await prisma.follows.findMany({
+            where: { followerId: userId },
+            select: { followingId: true }
+          })
+          const followingIds = following.map(f => f.followingId).filter(Boolean)
+          
+          // Показываем посты только от пользователей, на которых подписан
+          posts = await prisma.post.findMany({
+            where: { authorId: { in: followingIds } },
+            include: {
+              likes: {
+                include: {
+                  user: true
+                }
+              },
+              author: {
+                include: {
+                  followers: {
+                    where: { followerId: userId }
+                  }
+                }
+              },
+              comments: true,
+              PostView: {
+                where: { userId }
+              },
+              categories: true
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit
+          })
+
+          total = await prisma.post.count({
+            where: { authorId: { in: followingIds } }
+          })
+
+          // Добавляем поля isFollowing и likedByUser
+          posts = posts.map(({ likes, author, comments, PostView, categories, ...post }) => (
+            {
+              ...post,
+              author: {
+                id: author.id,
+                name: author.name,
+                userName: author.userName,
+                avatarUrl: author.avatarUrl
+              },
+              likedByUser: likes.some(like => like.userId === userId),
+              isFollowing: author.followers.length > 0,
+              viewed: PostView ? PostView.length > 0 : false,
+              categories
+            }
+          ))
+
+          break;
+
+        case 'viewed':
+          // Показываем только просмотренные посты
+          posts = await prisma.post.findMany({
+            where: { PostView: { some: { userId } } },
+            include: {
+              likes: {
+                include: {
+                  user: true
+                }
+              },
+              author: {
+                include: {
+                  followers: {
+                    where: { followerId: userId }
+                  }
+                }
+              },
+              comments: true,
+              PostView: {
+                where: { userId }
+              },
+              categories: true
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: +limit
+          })
+
+          total = await prisma.post.count({
+            where: { PostView: { some: { userId } } }
+          })
+
+          // Добавляем поля isFollowing и likedByUser
+          posts = posts.map(({ likes, author, comments, PostView, categories, ...post }) => (
+            {
+              ...post,
+              author: {
+                id: author.id,
+                name: author.name,
+                userName: author.userName,
+                avatarUrl: author.avatarUrl
+              },
+              likedByUser: likes.some(like => like.userId === userId),
+              isFollowing: author.followers.length > 0,
+              viewed: PostView ? PostView.length > 0 : false,
+              categories
+            }
+          ))
+
+          break;
+
+        case 'top':
+          posts = await prisma.post.findMany({
+            orderBy: { score: 'desc' },
+            include: {
+              likes: {
+                include: {
+                  user: true
+                }
+              },
+              author: {
+                include: {
+                  followers: {
+                    where: { followerId: userId }
+                  }
+                }
+              },
+              comments: true,
+              PostView: {
+                where: { userId }
+              },
+              categories: true
+            },
+            skip,
+            take: +limit
+          })
+
+          total = await prisma.post.count({
+            where: { score: { gt: 0 } }
+          })
+
+          // Добавляем поля isFollowing и likedByUser
+          posts = posts.map(({ likes, author, comments, PostView, categories, ...post }) => (
+            {
+              ...post,
+              author: {
+                id: author.id,
+                name: author.name,
+                userName: author.userName,
+                avatarUrl: author.avatarUrl
+              },
+              likedByUser: likes.some(like => like.userId === userId),
+              isFollowing: author.followers.length > 0,
+              viewed: PostView ? PostView.length > 0 : false,
+              categories
+            }
+          ))
+
+          break;
+
+        default:
+          // Для 'new' оставляем пустые условия, чтобы показать все посты
+          posts = await prisma.post.findMany({
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: +limit,
+            include: {
+              likes: {
+                include: {
+                  user: true
+                }
+              },
+              author: {
+                include: {
+                  followers: {
+                    where: { followerId: userId }
+                  }
+                }
+              },
+              comments: true
+            }
+          })
+
+          total = await prisma.post.count({})
+
+          // Добавляем поля isFollowing и likedByUser
+          posts = posts.map(({ likes, author, comments, ...post }) => (
+            {
+              ...post,
+              author: {
+                id: author.id,
+                name: author.name,
+                userName: author.userName,
+                avatarUrl: author.avatarUrl
+              },
+              likedByUser: likes.some(like => like.userId === userId),
+              isFollowing: author.followers.length > 0,
+            }
+          ))
       }
-
-      // Добавляем поля isFollowing и likedByUser
-      const postsWithLikesUserInfo = postsSorted.map(({ likes, author, comments, PostView, ...post }) => (
-      {
-        ...post,
-        author: {
-          id: author.id,
-          name: author.name,
-          userName: author.userName,
-          avatarUrl: author.avatarUrl
-        },
-        likedByUser: likes.some(like => like.userId === userId),
-        isFollowing: author.followers.length > 0,
-        viewed: PostView ? PostView.length > 0 : false
-      }))
 
       // Флаг "все просмотрено" для feedType 'for-you'
       let allViewed = false
       if (feedType === 'for-you') {
         // Если всего непосмотренных постов 0 — значит все просмотрено
-        allViewed = totalPosts === 0
+        allViewed = total === 0
       }
 
       // Устанавливаем заголовок с общим количеством постов
-      res.setHeader('x-total-count', totalPosts.toString())
+      res.setHeader('x-total-count', total.toString())
       res.setHeader('Access-Control-Expose-Headers', 'x-total-count')
 
       const result = {
-        data: postsWithLikesUserInfo,
-        total: totalPosts,
-        allViewed, 
+        data: posts,
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        allViewed,
       }
 
       res.json(result)
@@ -207,7 +396,7 @@ const PostController = {
       // Получаем посты с пагинацией
       const posts = await prisma.post.findMany({
         skip: skip ? skip : 0,
-        take: limit ? limit : undefined,
+        take: limit ? +limit : undefined,
         where: { authorId: userId },
         include: {
           likes: {
@@ -369,6 +558,9 @@ const PostController = {
         })
       ])
 
+      // Обновляем интересы пользователя
+      await ContentAnalysisService.updateUserInterests(userId, parseInt(id), 'view')
+
       res.json({message: "Пост успешно просмотрен"})
     } catch (error) {
       console.error('Error in incrementViewCount', error)
@@ -401,6 +593,9 @@ const PostController = {
           data: { userId, postId: parseInt(id) }
         })
       ])
+
+      // Обновляем интересы пользователя
+      await ContentAnalysisService.updateUserInterests(userId, parseInt(id), 'share')
 
       res.json({message: "Запись о шеринге сохранена"})
     } catch (error) {
