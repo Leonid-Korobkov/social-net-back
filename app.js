@@ -41,7 +41,12 @@ app.use('/api', require('./routes'))
 
 // Базовый роут для проверки работы сервера
 app.get('/', (req, res) => {
-  res.send('Server is running')
+  res.send('Сервер работает')
+})
+
+// Эндпоинт для пинга
+app.get('/hello', (req, res) => {
+  res.send('hello')
 })
 
 // Запуск сервера
