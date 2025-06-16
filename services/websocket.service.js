@@ -14,8 +14,8 @@ class WebSocketService {
         methods: ['GET', 'POST'],
         credentials: true
       },
-      pingTimeout: 60000,
-      pingInterval: 25000
+      pingTimeout: 40000,
+      pingInterval: 18000
     })
 
     this.io.on('connection', (socket) => {
