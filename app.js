@@ -5,10 +5,21 @@ const cookieParser = require('cookie-parser')
 const logger = require('morgan')
 const fs = require('fs')
 const cors = require('cors')
+const http = require('http')
 require('dotenv').config()
 
 const app = express()
+const server = http.createServer(app)
 const port = process.env.PORT || 4000
+
+// Инициализация WebSocket сервиса
+try {
+  const websocketService = require('./services/websocket.service')
+  websocketService.initialize(server)
+} catch (error) {
+  console.error('Ошибка при инициализации WebSocket:', error)
+  process.exit(1)
+}
 
 // Настройка доверия прокси
 // Если приложение работает за прокси (например, на Render.com)
@@ -39,6 +50,9 @@ app.use('/uploads', express.static('uploads'))
 // Монтирование маршрутов по пути api
 app.use('/api', require('./routes'))
 
+// Добавление маршрутов для управления сессиями
+app.use('/api/sessions', require('./routes/session.routes'))
+
 // Базовый роут для проверки работы сервера
 app.get('/', (req, res) => {
   res.send('Сервер работает')
@@ -50,31 +64,38 @@ app.get('/hello', (req, res) => {
 })
 
 // Запуск сервера
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+server.listen(port, () => {
+  console.log(`Сервер запущен на порту ${port}`)
   // Запускаем задачу cron после старта сервера
-  startScoreRecalculationCron()
+  try {
+    startScoreRecalculationCron()
+  } catch (error) {
+    console.error('Ошибка при запуске cron задачи:', error)
+  }
 })
 
-// Cоздание директории для картинок, если ее не существует
+// Создание директории для картинок, если ее не существует
 if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads')
 }
 
-// catch 404 and forward to error handler
+// Обработка 404 ошибки
 app.use(function (req, res, next) {
   next(createError(404))
 })
 
-// error handler
+// Обработчик ошибок
 app.use(function (err, req, res, next) {
-  // set locals, only providing error in development
+  // Установка локальных переменных, только для разработки
   res.locals.message = err.message
   res.locals.error = req.app.get('env') === 'development' ? err : {}
-  console.log(err)
+  console.error('Ошибка сервера:', err)
 
-  // render the error page
-  res.status(err.status || 500)
+  // Отправка страницы с ошибкой
+  res.status(err.status || 500).json({
+    message: err.message || 'Внутренняя ошибка сервера',
+    error: process.env.NODE_ENV === 'development' ? err : {}
+  })
 })
 
 module.exports = app

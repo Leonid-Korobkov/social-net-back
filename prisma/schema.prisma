@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -35,7 +35,7 @@ model User {
   PostView            PostView[]
   PostShare           PostShare[]
   emailVerifications  EmailVerification[]
-  refreshTokens       RefreshToken[]
+  passwordResets      PasswordReset[]
   isEmailVerified     Boolean             @default(false)
   lastLoginAt         DateTime?
   failedLoginAttempts Int                 @default(0)
@@ -154,17 +154,11 @@ model EmailVerification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model RefreshToken {
-  id               Int      @id @default(autoincrement())
-  userId           Int
-  token            String   @unique
-  expiresAt        DateTime
-  createdAt        DateTime @default(now())
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deviceInfo       String? // Browser, OS, device type, ip
-  lastUsedAt       DateTime @default(now())
-  isCurrentSession Boolean  @default(false)
-
-  @@index([userId])
-  @@index([lastUsedAt])
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -14,7 +14,7 @@ const {
   OpenGraphController
 } = require('../controllers')
 
-const { authenticateToken, loginLimiter } = require('../middleware/auth')
+const { authMiddleware, loginLimiter } = require('../middleware/auth.middleware')
 const { verifyOpenGraphPath } = require('../middleware/opengraph-auth')
 const {
   uploadMultiple,
@@ -68,51 +68,51 @@ router.post('/auth/register', UserController.register)
 router.post('/auth/verify-email', UserController.verifyEmail)
 router.post('/auth/resend-verification', UserController.resendVerification)
 router.post('/auth/login', loginLimiter, UserController.login)
-router.get('/auth/refresh', UserController.refreshToken)
-router.post('/auth/logout', UserController.logout)
+router.post('/auth/logout', authMiddleware, UserController.logout)
 router.post(
   '/auth/logout-all',
-  authenticateToken,
+  authMiddleware,
   UserController.logoutAllDevices
 )
-// router.post('/auth/forgot-password', UserController.forgotPassword)
-// router.post('/auth/reset-password', UserController.resetPassword)
+router.post('/auth/forgot-password', UserController.forgotPassword)
+router.post('/auth/verify-reset-code', UserController.verifyResetCode)
+router.post('/auth/reset-password', UserController.resetPassword)
 
-router.get('/current', authenticateToken, UserController.currentUser)
+router.get('/current', authMiddleware, UserController.currentUser)
 router.get(
   '/users/getRandomImage',
-  authenticateToken,
+  authMiddleware,
   UserController.getNewRandomImage
 )
-router.get('/users/:id', authenticateToken, UserController.getUserById)
+router.get('/users/:id', authMiddleware, UserController.getUserById)
 router.get(
   '/users/:userId/posts',
-  authenticateToken,
+  authMiddleware,
   PostController.getPostsByUserId
 )
 
 router.put(
   '/users/settings',
-  authenticateToken,
+  authMiddleware,
   UserController.updateUserSettings
 )
 router.put(
   '/users/:id',
-  authenticateToken,
+  authMiddleware,
   uploadSingle('avatar'),
   optimizeImage,
   UserController.updateUser
 )
 router.get(
   '/users/:userId/settings',
-  authenticateToken,
+  authMiddleware,
   UserController.getUserSettings
 )
 
 // Маршрутизация для постов и медиа
 router.post(
   '/posts',
-  authenticateToken,
+  authMiddleware,
   uploadMultiple('media', 10), // Можно загружать до 10 файлов в поле media
   processMedia, // Обработка медиа-файлов
   PostController.createPost
@@ -121,7 +121,7 @@ router.post(
 // Маршрут для обновления поста с медиа
 router.put(
   '/posts/:id',
-  authenticateToken,
+  authMiddleware,
   uploadMultiple('media', 10),
   processMedia,
   PostController.updatePost
@@ -130,78 +130,78 @@ router.put(
 // Загрузка отдельного медиафайла (например, для предварительной загрузки)
 router.post(
   '/media/upload',
-  authenticateToken,
+  authMiddleware,
   uploadMultiple('media', 1),
   processMedia,
   PostController.uploadMedia
 )
 
-router.get('/posts', authenticateToken, PostController.getAllPosts)
-router.get('/posts/:id', authenticateToken, PostController.getPostById)
-router.delete('/posts/:id', authenticateToken, PostController.deletePost)
+router.get('/posts', authMiddleware, PostController.getAllPosts)
+router.get('/posts/:id', authMiddleware, PostController.getPostById)
+router.delete('/posts/:id', authMiddleware, PostController.deletePost)
 router.get(
   '/posts/:postId/comments',
-  authenticateToken,
+  authMiddleware,
   CommentController.getComments
 )
 router.post(
   '/posts/:id/view',
-  authenticateToken,
+  authMiddleware,
   PostController.incrementViewCount
 )
 router.post(
   '/posts/:id/share',
-  authenticateToken,
+  authMiddleware,
   PostController.incrementShareCount
 )
 router.post(
   '/posts/views/batch',
-  authenticateToken,
+  authMiddleware,
   PostController.incrementViewsBatch
 )
 
 // Маршрутизация для комментариев
-router.post('/comments', authenticateToken, CommentController.createComment)
+router.post('/comments', authMiddleware, CommentController.createComment)
 router.delete(
   '/comments/:id',
-  authenticateToken,
+  authMiddleware,
   CommentController.deleteComment
 )
 router.get(
   '/comments/:commentId/likes',
-  authenticateToken,
+  authMiddleware,
   CommentController.getCommentLikes
 )
 
 // Маршрутизация для лайков
-router.post('/like', authenticateToken, LikeController.likePost)
-router.delete('/unlike', authenticateToken, LikeController.unlikePost)
-router.get('/likes/:postId', authenticateToken, LikeController.getLikes)
+router.post('/like', authMiddleware, LikeController.likePost)
+router.delete('/unlike', authMiddleware, LikeController.unlikePost)
+router.get('/likes/:postId', authMiddleware, LikeController.getLikes)
 
 // Маршрутизация для подписок
-router.post('/follow', authenticateToken, FollowController.followUser)
-router.delete('/unfollow', authenticateToken, FollowController.unfollowUser)
+router.post('/follow', authMiddleware, FollowController.followUser)
+router.delete('/unfollow', authMiddleware, FollowController.unfollowUser)
 
 // Маршрутизация для лайков комментариев
 router.post(
   '/comments/:commentId/like',
-  authenticateToken,
+  authMiddleware,
   CommentLikeController.toggleLike
 )
 router.get(
   '/comments/:commentId/likes',
-  authenticateToken,
+  authMiddleware,
   CommentLikeController.getLikes
 )
 
 // Маршрутизация для поиска
-router.get('/search', authenticateToken, SearchController.search)
+router.get('/search', authMiddleware, SearchController.search)
 
 // Удаление медиафайла из Cloudinary
-router.delete('/media/delete', authenticateToken, PostController.deleteMedia)
+router.delete('/media/delete', authMiddleware, PostController.deleteMedia)
 
 // Удаление пользователя
-router.delete('/users/:id', authenticateToken, UserController.deleteUser)
+router.delete('/users/:id', authMiddleware, UserController.deleteUser)
 
 // Маршруты для OpenGraph данных
 router.get(

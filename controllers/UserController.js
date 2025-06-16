@@ -1,18 +1,20 @@
 const { prisma } = require('../prisma/prisma-client')
 const bcrypt = require('bcryptjs')
 const jdenticon = require('jdenticon')
-const jwt = require('jsonwebtoken')
 const cloudinary = require('cloudinary').v2
-const uuid = require('uuid')
+const { v4: uuidv4 } = require('uuid');
 const emailService = require('../services/email.service')
+const redisService = require('../services/redis.service')
 const {
   generateVerificationCode,
-  parseUserAgent
 } = require('../utils/auth.utils')
-const { userCache } = require('../middleware/auth')
 const requestIp = require('request-ip')
 const dns = require('dns')
 const { promisify } = require('util')
+const UAParser = require('ua-parser-js')
+const geoip = require('geoip-lite')
+const websocketService = require('../services/websocket.service');
+
 
 // Helper function to validate email format and check MX records
 const validateEmail = async (email) => {
@@ -36,75 +38,49 @@ const validateEmail = async (email) => {
   }
 }
 
-// Helper function for token generation and device info
-const generateTokensAndDeviceInfo = async (
-  user,
-  req,
-  res,
-  existingTokenId = null
-) => {
-  // Генерируем токены
-  const accessToken = jwt.sign({ userId: user.id }, process.env.SECRET_KEY, {
-    expiresIn: '30m'
-  })
 
-  const refreshToken = jwt.sign(
-    { userId: user.id },
-    process.env.REFRESH_SECRET_KEY,
-    { expiresIn: '30d' }
-  )
 
-  // Парсим информацию об устройстве
-  const userAgent = req.headers['user-agent'] || 'Unknown device'
+// Helper function to create session
+const createSession = async (user, req, res) => {
+  const sessionId = uuidv4()
+  const userAgent = new UAParser(req.headers['user-agent'])
   const ipAddress = requestIp.getClientIp(req)
-  const deviceInfo = {
-    ...parseUserAgent(userAgent),
+  const geo = geoip.lookup(ipAddress)
+
+  const sessionData = {
+    sessionId,
+    userId: user.id,
+    browser: userAgent.getBrowser().name,
+    browserVersion: userAgent.getBrowser().version,
+    os: userAgent.getOS().name,
+    device: userAgent.getDevice().type || 'desktop',
     ipAddress,
-    timestamp: new Date().toISOString()
-  }
-
-  // Сохраняем или обновляем refresh token
-  if (existingTokenId) {
-    await prisma.refreshToken.update({
-      where: { id: existingTokenId },
-      data: {
-        token: refreshToken,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        deviceInfo: JSON.stringify(deviceInfo),
-        lastUsedAt: new Date()
-      }
-    })
-  } else {
-    await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        token: refreshToken,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        deviceInfo: JSON.stringify(deviceInfo),
-        isCurrentSession: true
-      }
-    })
-  }
-
-  // Устанавливаем HTTP-only cookie
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/'
-  })
-
-  return {
-    accessToken,
+    location: {
+      country: geo?.country || 'Неизвестно',
+      city: geo?.city || 'Неизвестно',
+      region: geo?.region || 'Неизвестно'
+    },
+    timestamp: new Date().toISOString(),
+    lastActivity: new Date().toISOString(),
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
       userName: user.userName,
-      isEmailVerified: user.isEmailVerified
+      isEmailVerified: user.isEmailVerified,
+      avatarUrl: user.avatarUrl
     }
   }
+
+  await redisService.setSession(sessionId, sessionData)
+  res.cookie('sessionId', sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней в миллисекундах
+  })
+
+  return sessionData
 }
 
 const UserController = {
@@ -242,17 +218,12 @@ const UserController = {
         where: { id: verification.id }
       })
 
-      // Генерируем токены и информацию об устройстве
-      const { accessToken, user: userData } = await generateTokensAndDeviceInfo(
-        user,
-        req,
-        res
-      )
+      // Создаем сессию после подтверждения email
+      const session = await createSession(user, req, res)
 
       res.json({
         message: 'Email успешно подтвержден',
-        accessToken,
-        user: userData
+        user: session.user
       })
     } catch (error) {
       console.error('Error in verifyEmail', error)
@@ -348,79 +319,47 @@ const UserController = {
         }
       })
 
-      // Генерируем токены и информацию об устройстве
-      const { accessToken, user: userData } = await generateTokensAndDeviceInfo(
-        user,
-        req,
-        res
+      // Создаем сессию после успешного входа
+      const session = await createSession(user, req, res)
+
+      const loginTime = new Date(session.timestamp).toLocaleString('ru-RU', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })
+
+      emailService.sendNewLoginEmail(
+        session.ipAddress,
+        `${session.device} (${session.browser}, ${session.os})`,
+        `${session.location.region}, ${session.location.city}, ${session.location.country}`,
+        loginTime,
+        user.email
       )
 
+      await websocketService.notifySessionUpdate(user.id, session.sessionId);
+
       res.json({
-        accessToken,
-        user: userData
+        user: session.user
       })
     } catch (error) {
       console.error('Error in login', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
-
-  async refreshToken(req, res) {
-    const { refreshToken } = req.cookies
-
-    if (!refreshToken) {
-      return res.status(401).json({ error: 'Refresh token не предоставлен' })
-    }
-
-    try {
-      const token = await prisma.refreshToken.findUnique({
-        where: { token: refreshToken },
-        include: { user: true }
-      })
-
-      if (!token || token.expiresAt < new Date()) {
-        return res.status(401).json({ error: 'Недействительный refresh token' })
-      }
-
-      // Генерируем новые токены и информацию об устройстве, передавая ID существующего токена
-      const { accessToken, user: userData } = await generateTokensAndDeviceInfo(
-        token.user,
-        req,
-        res,
-        token.id
-      )
-
-      res.json({ accessToken })
-    } catch (error) {
-      console.error('Error in refreshToken', error)
-      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
-    }
-  },
-
   async logout(req, res) {
-    const { refreshToken } = req.cookies
-
     try {
-      if (refreshToken) {
-        // First check if the token exists
-        const existingToken = await prisma.refreshToken.findUnique({
-          where: { token: refreshToken }
-        })
-
-        // Only delete if the token exists
-        if (existingToken) {
-          await prisma.refreshToken.delete({
-            where: { token: refreshToken }
-          })
-        }
+      if (req.session) {
+        await redisService.deleteSession(req.session.sessionId)
       }
 
-      // Clear cookie regardless of whether token existed or not
-      res.clearCookie('refreshToken', {
+      res.clearCookie('sessionId', {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/'
       })
 
       res.json({ message: 'Успешный выход из системы' })
@@ -432,11 +371,7 @@ const UserController = {
 
   async logoutAllDevices(req, res) {
     try {
-      await prisma.refreshToken.deleteMany({
-        where: { userId: req.user.id }
-      })
-      userCache.del(req.user.id)
-
+      await redisService.deleteUserSessions(req.user.id)
       res.json({ message: 'Выход выполнен со всех устройств' })
     } catch (error) {
       console.error('Error in logoutAllDevices', error)
@@ -748,7 +683,7 @@ const UserController = {
     try {
       // Генерируем аватар и загружаем его в Cloudinary
       const size = 400
-      const generatedImage = jdenticon.toPng(uuid.v4(), size)
+      const generatedImage = jdenticon.toPng(uuidv4(), size)
 
       const result = await new Promise((resolve, reject) => {
         cloudinary.uploader
@@ -859,6 +794,124 @@ const UserController = {
       res.json({ message: 'Код подтверждения отправлен повторно.' })
     } catch (error) {
       console.error('Error in resendVerification', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+
+  async forgotPassword(req, res) {
+    const { email } = req.body
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email обязателен' })
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { email } })
+
+      if (!user) {
+        return res.status(404).json({ error: 'Пользователь с таким email не найден' })
+      }
+
+      const resetCode = generateVerificationCode() // Используем ту же логику для генерации кода
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 минут
+
+      // Удаляем старые коды сброса пароля для этого пользователя
+      await prisma.passwordReset.deleteMany({ where: { userId: user.id } })
+
+      // Создаем новую запись с кодом сброса
+      await prisma.passwordReset.create({
+        data: {
+          userId: user.id,
+          code: resetCode,
+          expiresAt,
+        },
+      })
+
+      await emailService.sendPasswordResetCode(email, resetCode)
+
+      res.json({ message: 'Код сброса пароля отправлен на ваш email.' })
+    } catch (error) {
+      console.error('Error in forgotPassword', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+
+  async verifyResetCode(req, res) {
+    const { email, code } = req.body
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email и код обязательны' })
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { email } })
+
+      if (!user) {
+        return res.status(404).json({ error: 'Пользователь не найден' })
+      }
+
+      const resetEntry = await prisma.passwordReset.findFirst({
+        where: {
+          userId: user.id,
+          code: code,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+      })
+
+      if (!resetEntry) {
+        return res.status(400).json({ error: 'Неверный или истекший код сброса пароля' })
+      }
+
+      res.json({ message: 'Код подтвержден. Можно сбрасывать пароль.', userId: user.id })
+    } catch (error) {
+      console.error('Error in verifyResetCode', error)
+      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+    }
+  },
+
+  async resetPassword(req, res) {
+    const { email, code, newPassword } = req.body
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: 'Email, код и новый пароль обязательны' })
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { email } })
+
+      if (!user) {
+        return res.status(404).json({ error: 'Пользователь не найден' })
+      }
+
+      const resetEntry = await prisma.passwordReset.findFirst({
+        where: {
+          userId: user.id,
+          code: code,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+      })
+
+      if (!resetEntry) {
+        return res.status(400).json({ error: 'Неверный или истекший код сброса пароля' })
+      }
+
+      const hashPassword = await bcrypt.hash(newPassword, 10)
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashPassword },
+      })
+
+      // Удаляем использованный код сброса
+      await prisma.passwordReset.delete({ where: { id: resetEntry.id } })
+
+      res.json({ message: 'Пароль успешно обновлен.' })
+    } catch (error) {
+      console.error('Error in resetPassword', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   }

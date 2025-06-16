@@ -15,19 +15,27 @@ import {
   Row
 } from '@react-email/components'
 
-interface ResetPasswordEmailProps {
-  resetCode?: string
+interface NewLoginEmailProps {
+  ipAddress: string
+  device: string
+  location: string
+  loginTime: string
+  userEmail: string
 }
 
 const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
 
-export default function ResetPasswordEmail({
-  resetCode
-}: ResetPasswordEmailProps) {
+export default function NewLoginEmail({
+  ipAddress,
+  device,
+  location,
+  loginTime,
+  userEmail
+}: NewLoginEmailProps) {
   return (
     <Html>
       <Head />
-      <Preview>Сброс пароля в Zling</Preview>
+      <Preview>Новый вход в аккаунт Zling</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={coverSection}>
@@ -50,23 +58,49 @@ export default function ResetPasswordEmail({
               </Row>
             </Section>
             <Section style={upperSection}>
-              <Heading style={h1}>Сброс пароля</Heading>
+              <Heading style={h1}>Новый вход в ваш аккаунт</Heading>
               <Text style={mainText}>
-                Мы получили запрос на сброс пароля для вашего аккаунта Zling.
-                Для установки нового пароля введите код подтверждения ниже.
+                Мы заметили новый вход в ваш аккаунт Zling ({userEmail}). Если
+                это были вы, никаких действий не требуется.
               </Text>
-              <Section style={verificationSection}>
-                <Text style={verifyText}>Код сброса пароля</Text>
-                <Text style={codeText}>{resetCode}</Text>
-                <Text style={validityText}>
-                  (Код действителен в течение 10 минут)
+              <Section style={detailsSection}>
+                <Text style={detailText}>
+                  IP-адрес: <span style={detailValue}>{ipAddress}</span>
+                </Text>
+                <Text style={detailText}>
+                  Устройство: <span style={detailValue}>{device}</span>
+                </Text>
+                <Text style={detailText}>
+                  Местоположение: <span style={detailValue}>{location}</span>
+                </Text>
+                <Text style={detailText}>
+                  Время входа: <span style={detailValue}>{loginTime}</span>
                 </Text>
               </Section>
               <Text style={mainText}>
-                Если вы не запрашивали сброс пароля, проигнорируйте это письмо.
-                Для безопасности вашего аккаунта, пожалуйста, не пересылайте это
-                письмо другим лицам.
+                Если вы не узнаёте этот вход или считаете, что кто-то получил
+                несанкционированный доступ к вашему аккаунту, пожалуйста,
+                немедленно примите меры:
               </Text>
+              <Section style={actionSection}>
+                <Text style={actionText}>
+                  1.{' '}
+                  <Link href={`${baseUrl}`} style={link}>
+                    Измените ваш пароль
+                  </Link>
+                </Text>
+                <Text style={actionText}>
+                  2.{' '}
+                  <Link href={`${baseUrl}`} style={link}>
+                    Просмотрите активные сессии
+                  </Link>{' '}
+                  и завершите любую подозрительную активность.
+                </Text>
+                <Text style={actionText}>
+                  3. Свяжитесь с нашей службой поддержки, если у вас есть
+                  вопросы.
+                </Text>
+              </Section>
             </Section>
             <Hr style={hr} />
             <Section style={lowerSection}>
@@ -130,32 +164,38 @@ const mainText = {
   margin: '0 0 24px'
 }
 
-const verificationSection = {
+const detailsSection = {
   backgroundColor: '#f8f9fa',
   borderRadius: '8px',
-  padding: '24px',
-  textAlign: 'center' as const
+  padding: '16px',
+  margin: '24px 0'
 }
 
-const verifyText = {
+const detailText = {
   color: '#4a4a4a',
   fontSize: '14px',
-  fontWeight: 'bold',
+  lineHeight: '20px',
   margin: '0 0 8px'
 }
 
-const codeText = {
-  color: '#0070f3',
-  fontSize: '36px',
-  fontWeight: 'bold',
-  letterSpacing: '4px',
-  margin: '16px 0'
+const detailValue = {
+  fontWeight: 'bold'
 }
 
-const validityText = {
-  color: '#666666',
-  fontSize: '14px',
-  margin: '0'
+const actionSection = {
+  padding: '16px 0 0'
+}
+
+const actionText = {
+  color: '#4a4a4a',
+  fontSize: '16px',
+  lineHeight: '24px',
+  margin: '0 0 12px'
+}
+
+const link = {
+  color: '#0070f3',
+  textDecoration: 'underline'
 }
 
 const hr = {
