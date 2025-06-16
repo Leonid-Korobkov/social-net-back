@@ -11,11 +11,9 @@ const {
   FollowController,
   CommentLikeController,
   SearchController,
-  OpenGraphController
 } = require('../controllers')
 
 const { authMiddleware, loginLimiter } = require('../middleware/auth.middleware')
-const { verifyOpenGraphPath } = require('../middleware/opengraph-auth')
 const {
   uploadMultiple,
   processMedia,
@@ -202,18 +200,5 @@ router.delete('/media/delete', authMiddleware, PostController.deleteMedia)
 
 // Удаление пользователя
 router.delete('/users/:id', authMiddleware, UserController.deleteUser)
-
-// Маршруты для OpenGraph данных
-router.get(
-  '/og/post/:id',
-  verifyOpenGraphPath,
-  OpenGraphController.getPostData
-)
-
-router.get(
-  '/og/user/:username',
-  verifyOpenGraphPath,
-  OpenGraphController.getUserData
-)
 
 module.exports = router

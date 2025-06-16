@@ -53,6 +53,10 @@ app.use('/api', require('./routes'))
 // Добавление маршрутов для управления сессиями
 app.use('/api/sessions', require('./routes/session.routes'))
 
+// Добавление маршрутов для управления opengraph
+app.use('/', require('./routes/opengraph.routes'))
+
+
 // Базовый роут для проверки работы сервера
 app.get('/', (req, res) => {
   res.send('Сервер работает')
