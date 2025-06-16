@@ -42,6 +42,10 @@ class WebSocketService {
         }
       })
 
+      socket.on('reconnect', attempt => {
+        console.log('WebSocket переподключен:', attempt)
+      })
+
       // Обработка отключения
       socket.on('disconnect', (reason) => {
         if (socket.userId) {
