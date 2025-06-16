@@ -76,7 +76,7 @@ const createSession = async (user, req, res) => {
   res.cookie('sessionId', sessionId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'none',
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней в миллисекундах
   })
 
@@ -328,7 +328,8 @@ const UserController = {
           day: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
-          second: '2-digit'
+          second: '2-digit',
+          timeZone: 'Europe/Moscow'
         })
 
       emailService.sendNewLoginEmail(
@@ -358,7 +359,7 @@ const UserController = {
       res.clearCookie('sessionId', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'none',
         path: '/'
       })
 

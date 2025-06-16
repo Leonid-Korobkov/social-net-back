@@ -111,7 +111,7 @@ const createSessionMiddleware = async (req, res, next) => {
       res.cookie('sessionId', newSessionId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'none',
         maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней в миллисекундах
       });
 
