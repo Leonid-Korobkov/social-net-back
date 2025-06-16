@@ -48,7 +48,7 @@ app.set('view engine', 'jade')
 app.use('/uploads', express.static('uploads'))
 
 // Монтирование маршрутов по пути api
-app.use('/api', require('./routes'))
+app.use('/apis', require('./routes'))
 
 // Добавление маршрутов для управления сессиями
 app.use('/api/sessions', require('./routes/session.routes'))
