@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const redisService = require('../services/redis.service');
 const rateLimit = require('express-rate-limit');
 const UAParser = require('ua-parser-js');
-const geoip = require('geoip-lite');
+const { lookup } = require('ip-location-api');
 const { v4: uuidv4 } = require('uuid');
 const requestIp = require('request-ip');
 
@@ -87,7 +87,7 @@ const createSessionMiddleware = async (req, res, next) => {
       const newSessionId = uuidv4();
       const userAgent = new UAParser(req.headers['user-agent']);
       const ipAddress = requestIp.getClientIp(req);
-      const geo = geoip.lookup(ipAddress);
+      const geo = lookup(ipAddress, { addCountryInfo: true });
 
       const sessionData = {
         sessionId: newSessionId,
@@ -98,9 +98,11 @@ const createSessionMiddleware = async (req, res, next) => {
         device: userAgent.getDevice().type || 'desktop',
         ipAddress,
         location: {
-          country: geo?.country || 'Неизвестно',
+          country: geo?.country_name || 'Неизвестно',
           city: geo?.city || 'Неизвестно',
-          region: geo?.region || 'Неизвестно'
+          region1: geo?.region1_name || 'Неизвестно',
+          region2: geo?.region2_name || 'Неизвестно',
+          capital: geo?.capital || 'Неизвестно'
         },
         timestamp: new Date().toISOString(),
         lastActivity: new Date().toISOString(),

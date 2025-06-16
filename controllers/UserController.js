@@ -12,7 +12,7 @@ const requestIp = require('request-ip')
 const dns = require('dns')
 const { promisify } = require('util')
 const UAParser = require('ua-parser-js')
-const geoip = require('geoip-lite')
+const { lookup } = require('ip-location-api');
 const websocketService = require('../services/websocket.service');
 
 
@@ -45,7 +45,8 @@ const createSession = async (user, req, res) => {
   const sessionId = uuidv4()
   const userAgent = new UAParser(req.headers['user-agent'])
   const ipAddress = requestIp.getClientIp(req)
-  const geo = geoip.lookup(ipAddress)
+  const geo = lookup(ipAddress, { addCountryInfo: true })
+
 
   const sessionData = {
     sessionId,
@@ -56,9 +57,11 @@ const createSession = async (user, req, res) => {
     device: userAgent.getDevice().type || 'desktop',
     ipAddress,
     location: {
-      country: geo?.country || 'Неизвестно',
+      country: geo?.country_name || 'Неизвестно',
       city: geo?.city || 'Неизвестно',
-      region: geo?.region || 'Неизвестно'
+      region1: geo?.region1_name || 'Неизвестно',
+      region2: geo?.region2_name || 'Неизвестно',
+      capital: geo?.capital || 'Неизвестно'
     },
     timestamp: new Date().toISOString(),
     lastActivity: new Date().toISOString(),
@@ -335,7 +338,7 @@ const UserController = {
       emailService.sendNewLoginEmail(
         session.ipAddress,
         `${session.device} (${session.browser}, ${session.os})`,
-        `${session.location.region}, ${session.location.city}, ${session.location.country}`,
+        `${session.location.city}, ${session.location.region1}, ${session.location.country}`,
         loginTime,
         user.email
       )
