@@ -54,7 +54,7 @@ app.use('/api', require('./routes'))
 app.use('/api/sessions', require('./routes/session.routes'))
 
 // Добавление маршрутов для управления opengraph
-app.use('/', require('./routes/opengraph.routes'))
+app.use('api/', require('./routes/opengraph.routes'))
 
 
 // Базовый роут для проверки работы сервера
