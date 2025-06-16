@@ -51,7 +51,7 @@ app.use('/uploads', express.static('uploads'))
 app.use('/apis', require('./routes'))
 
 // Добавление маршрутов для управления сессиями
-app.use('/api/sessions', require('./routes/session.routes'))
+app.use('/apis/sessions', require('./routes/session.routes'))
 
 // Добавление маршрутов для управления opengraph
 app.use('/api', require('./routes/opengraph.routes'))
