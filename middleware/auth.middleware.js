@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const redisService = require('../services/redis.service');
 const rateLimit = require('express-rate-limit');
 const UAParser = require('ua-parser-js');
-const { lookup } = require('ip-location-api');
+const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const requestIp = require('request-ip');
 
@@ -87,7 +87,14 @@ const createSessionMiddleware = async (req, res, next) => {
       const newSessionId = uuidv4();
       const userAgent = new UAParser(req.headers['user-agent']);
       const ipAddress = requestIp.getClientIp(req);
-      const geo = lookup(ipAddress, { addCountryInfo: true });
+
+      let geo = {};
+      try {
+        const response = await axios.get(`http://ip-api.com/json/${ipAddress}?lang=ru`);
+        geo = response.data;
+      } catch (error) {
+        console.error('Ошибка при получении геоданных с ip-api.com:', error);
+      }
 
       const sessionData = {
         sessionId: newSessionId,
@@ -98,11 +105,10 @@ const createSessionMiddleware = async (req, res, next) => {
         device: userAgent.getDevice().type || 'desktop',
         ipAddress,
         location: {
-          country: geo?.country_name || 'Неизвестно',
+          country: geo?.country || 'Неизвестно',
           city: geo?.city || 'Неизвестно',
-          region1: geo?.region1_name || 'Неизвестно',
-          region2: geo?.region2_name || 'Неизвестно',
-          capital: geo?.capital || 'Неизвестно'
+          region1: geo?.regionName || 'Неизвестно',
+          region2: geo?.region || 'Неизвестно',
         },
         timestamp: new Date().toISOString(),
         lastActivity: new Date().toISOString(),

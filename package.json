@@ -23,7 +23,6 @@
     "express-rate-limit": "^7.5.0",
     "http-errors": "~1.6.3",
     "ioredis": "^5.6.1",
-    "ip-location-api": "^3.0.3",
     "jdenticon": "^3.3.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "~1.9.1",

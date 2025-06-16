@@ -12,7 +12,7 @@ const requestIp = require('request-ip')
 const dns = require('dns')
 const { promisify } = require('util')
 const UAParser = require('ua-parser-js')
-const { lookup } = require('ip-location-api');
+const axios = require('axios');
 const websocketService = require('../services/websocket.service');
 
 
@@ -45,8 +45,14 @@ const createSession = async (user, req, res) => {
   const sessionId = uuidv4()
   const userAgent = new UAParser(req.headers['user-agent'])
   const ipAddress = requestIp.getClientIp(req)
-  const geo = lookup(ipAddress, { addCountryInfo: true })
 
+  let geo = {};
+  try {
+    const response = await axios.get(`http://ip-api.com/json/${ipAddress}?lang=ru`);
+    geo = response.data;
+  } catch (error) {
+    console.error('Ошибка при получении геоданных с ip-api.com:', error);
+  }
 
   const sessionData = {
     sessionId,
@@ -57,11 +63,10 @@ const createSession = async (user, req, res) => {
     device: userAgent.getDevice().type || 'desktop',
     ipAddress,
     location: {
-      country: geo?.country_name || 'Неизвестно',
+      country: geo?.country || 'Неизвестно',
       city: geo?.city || 'Неизвестно',
-      region1: geo?.region1_name || 'Неизвестно',
-      region2: geo?.region2_name || 'Неизвестно',
-      capital: geo?.capital || 'Неизвестно'
+      region1: geo?.regionName || 'Неизвестно',
+      region2: geo?.region || 'Неизвестно',
     },
     timestamp: new Date().toISOString(),
     lastActivity: new Date().toISOString(),

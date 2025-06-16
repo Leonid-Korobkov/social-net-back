@@ -9,6 +9,7 @@ class WebSocketService {
 
   initialize(server) {
     this.io = socketIO(server, {
+      path: '/socket.io',
       cors: {
         origin: [process.env.ORIGIN_URL_PROD, process.env.ORIGIN_URL_DEV],
         methods: ['GET', 'POST'],
