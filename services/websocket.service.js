@@ -4,6 +4,7 @@ const redisService = require('./redis.service')
 class WebSocketService {
   constructor() {
     this.io = null
+    // Изменяем структуру для правильного хранения сокетов
     this.userSockets = new Map() // userId -> Map(socketId -> sessionData)
   }
 
@@ -15,9 +16,12 @@ class WebSocketService {
         credentials: true
       },
       // Настройки для более стабильного соединения
-      pingTimeout: 40000, // Увеличено время ожидания pong
-      pingInterval: 18000, // Интервал ping
-      upgradeTimeout: 30000,
+      pingTimeout: 30000, // Уменьшено для Vercel/Render
+      pingInterval: 10000, // Уменьшено для Vercel/Render
+      upgradeTimeout: 10000,
+      allowEIO3: true,
+      // Для Vercel/Render лучше использовать только polling
+      transports: ['polling']
     })
 
     this.io.on('connection', (socket) => {
@@ -57,8 +61,8 @@ class WebSocketService {
       })
 
       // Обработка ping от клиента для поддержания соединения
-      socket.on('ping', () => {
-        socket.emit('pong', Date.now())
+      socket.on('ping', (timestamp) => {
+        socket.emit('pong', timestamp) // Возвращаем тот же timestamp
         
         // Обновляем время последнего ping
         if (socket.userId && this.userSockets.has(socket.userId)) {
