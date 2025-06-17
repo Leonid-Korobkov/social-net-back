@@ -43,14 +43,14 @@ export default function NewLoginEmail({
               <Row cellSpacing={8}>
                 <Column align="left" className="w-1/2">
                   <Img
-                    src="https://zling.vercel.app/Zling-logo-white.png"
+                    src="https://res.cloudinary.com/djsmqdror/image/upload/v1750155231/zq35p5eoicsucuzfyw2w.png"
                     alt="Zling Logo"
                     width="100"
                   />
                 </Column>
                 <Column align="right" className="w-1/2">
                   <Img
-                    src="https://zling.vercel.app/Zling-logo.png"
+                    src="https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png"
                     alt="Butterfly"
                     width="60"
                   />
