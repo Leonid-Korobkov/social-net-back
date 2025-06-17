@@ -31,7 +31,7 @@ const validateEmail = async (email) => {
     
     return true
   } catch (error) {
-    if (error.code === 'ENOTFOUND') {
+    if (error.code === 'ENOTFOUND' || error.code === 'ENODATA') {
       throw new Error('Домен не существует')
     }
     throw error
@@ -189,7 +189,7 @@ const UserController = {
       if (error.message === 'Email не существует') {
         return res.status(400).json({ error: 'Указанный email не существует' })
       }
-      return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
+      return res.status(500).json({ error: error.message || 'Что-то пошло не так на сервере'  })
     }
   },
 
