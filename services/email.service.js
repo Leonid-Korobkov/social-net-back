@@ -4,6 +4,7 @@ const { render } = require('@react-email/render')
 const VerificationEmail = require('../emails/VerificationEmail').default
 const ResetPasswordEmail = require('../emails/ResetPasswordEmail').default
 const NewLoginEmail = require('../emails/NewLoginEmail').default
+const NewPostEmail = require('../emails/NewPostEmail').default
 
 class EmailService {
   constructor () {
@@ -176,6 +177,51 @@ class EmailService {
       return true
     } catch (error) {
       console.error('Error sending new login email:', error)
+      if (error.response) {
+        console.error('SMTP Response:', error.response)
+      }
+      if (error.responseCode) {
+        console.error('SMTP Response Code:', error.responseCode)
+      }
+      return false
+    }
+  }
+
+  async sendNewPostEmail(subscriberEmail, authorName, postContent, postId, postPreviewImage) {
+    try {
+      const emailHtml = await render(
+        NewPostEmail({
+          authorName,
+          postContent,
+          postId,
+          postPreviewImage
+        })
+      )
+
+      const mailOptions = {
+        from: {
+          name: 'Zling',
+          address: process.env.SMTP_FROM
+        },
+        to: subscriberEmail,
+        subject: `Новый пост от ${authorName} в Zling!`,
+        html: emailHtml,
+        headers: {
+          'X-Mailer': 'Zling Mailer'
+        },
+        dsn: {
+          id: 'new-post-email',
+          return: 'headers',
+          notify: ['failure', 'delay'],
+          recipient: process.env.SMTP_FROM
+        }
+      }
+
+      const info = await this.transporter.sendMail(mailOptions)
+      console.log('New post email sent:', info.response)
+      return true
+    } catch (error) {
+      console.error('Error sending new post email:', error)
       if (error.response) {
         console.error('SMTP Response:', error.response)
       }

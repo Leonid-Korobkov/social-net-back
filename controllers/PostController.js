@@ -1,5 +1,6 @@
 const { prisma } = require('../prisma/prisma-client')
 const cloudinary = require('cloudinary').v2
+const emailService = require('../services/email.service')
 
 const PostController = {
   async createPost (req, res) {
@@ -34,10 +35,52 @@ const PostController = {
               name: true,
               userName: true,
               avatarUrl: true,
+              email: true
             }
           }
         }
       })
+
+      // Получаем email всех подписчиков автора
+      const followers = await prisma.follows.findMany({
+        where: { followingId: userId },
+        select: {
+          follower: {
+            select: {
+              email: true
+            }
+          }
+        }
+      })
+      // Фильтруем только валидные email
+      const subscriberEmails = followers
+        .map(f => f.follower?.email)
+        .filter(email => !!email)
+
+      // Опционально: превью картинки (берём первую из media, если есть)
+      let postPreviewImage = undefined
+      if (Array.isArray(post.media) && post.media.length > 0) {
+        postPreviewImage = post.media[0]
+      } else if (post.imageUrl) {
+        postPreviewImage = post.imageUrl
+      }
+
+      // Рассылаем письма асинхронно (не ждём завершения)
+      if (subscriberEmails.length > 0) {
+        Promise.allSettled(
+          subscriberEmails.map(email =>
+            emailService.sendNewPostEmail(
+              email,
+              post.author.name || post.author.userName || 'Автор',
+              post.content,
+              post.id,
+              postPreviewImage
+            )
+          )
+        ).then(results => {
+          // Можно логировать результаты, если нужно
+        })
+      }
 
       res.json(post)
     } catch (error) {
