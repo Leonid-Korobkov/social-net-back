@@ -25,8 +25,6 @@ interface NewCommentEmailProps {
   postPreviewImage?: string
 }
 
-const baseUrl = process.env.ORIGIN_URL_PROD || 'https://zling.vercel.app'
-
 export default function NewCommentEmail({
   commenterName,
   commentText,
@@ -93,7 +91,7 @@ export default function NewCommentEmail({
               </Section>
               <Section style={actionSection}>
                 <Link
-                  href={`${baseUrl}/${postAuthorUserName}/post/${postId}`}
+                  href={`${FRONTEND_URL}/${postAuthorUserName}/post/${postId}`}
                   style={button}
                 >
                   Посмотреть комментарий

@@ -12,6 +12,7 @@ const { promisify } = require('util')
 const UAParser = require('ua-parser-js')
 const axios = require('axios')
 const websocketService = require('../services/websocket.service')
+const webpush = require('../services/webpush.service')
 
 // Список разрешённых доменов
 const allowedEmailDomains = [
@@ -398,6 +399,29 @@ const UserController = {
         loginTime,
         user.email
       )
+
+      // Web Push: отправляем push-уведомление о входе в аккаунт
+      const pushSubscriptions = await prisma.pushSubscription.findMany({
+        where: { userId: user.id }
+      })
+      for (const sub of pushSubscriptions) {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: sub.endpoint,
+              keys: sub.keys
+            },
+            JSON.stringify({
+              title: `Вход в аккаунт Zling`,
+              body: `Выполнен вход с устройства: ${session.device} (${session.browser}, ${session.os}) по IP: ${session.ipAddress}`,
+              url: '/',
+              icon: session.user.avatarUrl || undefined
+            })
+          )
+        } catch (err) {
+          // Можно удалить невалидную подписку при ошибке
+        }
+      }
 
       await websocketService.notifySessionUpdate(user.id, session.sessionId)
 

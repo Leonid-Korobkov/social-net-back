@@ -64,7 +64,7 @@ const CommentController = {
         // Получаем данные о комментаторе
         const commenter = await prisma.user.findUnique({
           where: { id: userId },
-          select: { name: true, userName: true, email: true }
+          select: { name: true, userName: true, email: true, avatarUrl: true }
         })
 
         // Опционально: превью картинки (берём первую из media, если есть)
@@ -85,6 +85,32 @@ const CommentController = {
           stripHtml(post.content),
           optimizeCloudinaryImage(postPreviewImage)
         )
+
+        // Web Push: отправляем push-уведомление автору поста
+        const pushSubscriptions = await prisma.pushSubscription.findMany({
+          where: { userId: post.author.id }
+        })
+        const webpush = require('../services/webpush.service')
+        for (const sub of pushSubscriptions) {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: sub.keys
+              },
+              JSON.stringify({
+                title: `Новый комментарий к вашему посту!`,
+                body: `${commenter.userName || commenter.name || 'Пользователь'}: ${stripHtml(content).slice(0, 100)}`,
+                url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
+                icon:
+                  commenter.avatarUrl ||
+                  'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+              })
+            )
+          } catch (err) {
+            // Можно удалить невалидную подписку при ошибке
+          }
+        }
       }
     } catch (error) {
       console.error('Error in createComment', error)

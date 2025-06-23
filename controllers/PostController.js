@@ -84,6 +84,37 @@ const PostController = {
         })
       }
 
+      // Web Push: отправляем push-уведомления подписчикам
+      const followerIds = followers
+        .map((f) => f.follower?.id)
+        .filter((id) => !!id)
+      if (followerIds.length > 0) {
+        const pushSubscriptions = await prisma.pushSubscription.findMany({
+          where: { userId: { in: followerIds } }
+        })
+        const webpush = require('../services/webpush.service')
+        for (const sub of pushSubscriptions) {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: sub.keys
+              },
+              JSON.stringify({
+                title: `Новый пост от ${post.author.userName || post.author.name}`,
+                body: stripHtml(post.content).slice(0, 100),
+                url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
+                icon:
+                  post.author.avatarUrl ||
+                  'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+              })
+            )
+          } catch (err) {
+            // Можно удалить невалидную подписку при ошибке
+          }
+        }
+      }
+
       res.json(post)
     } catch (error) {
       console.error('Error in createPost', error)

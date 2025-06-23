@@ -22,8 +22,6 @@ interface NewPostEmailProps {
   postPreviewImage?: string
 }
 
-const baseUrl = process.env.ORIGIN_URL_PROD || 'https://zling.vercel.app'
-
 export default function NewPostEmail({
   authorName,
   postContent,
@@ -79,7 +77,7 @@ export default function NewPostEmail({
               </Section>
               <Section style={actionSection}>
                 <Link
-                  href={`${baseUrl}/${authorName}/post/${postId}`}
+                  href={`${FRONTEND_URL}/${authorName}/post/${postId}`}
                   style={button}
                 >
                   Читать пост

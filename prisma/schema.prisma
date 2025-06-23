@@ -40,6 +40,7 @@ model User {
   lastLoginAt         DateTime?
   failedLoginAttempts Int                 @default(0)
   lockedUntil         DateTime?
+  PushSubscription    PushSubscription[]
 
   @@index([email])
   @@index([name])
@@ -178,4 +179,13 @@ model AuthLog {
   location       Json
   timestamp      DateTime
   event          String // 'login', 'register', 'verify', и т.д.
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @unique
+  keys      Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

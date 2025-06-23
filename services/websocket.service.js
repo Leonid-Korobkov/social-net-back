@@ -30,7 +30,9 @@ class WebSocketService {
       // Обработка аутентификации пользователя
       socket.on('authenticate', async (userId) => {
         try {
-          console.log(`Аутентификация пользователя ${userId} для сокета ${socket.id}`)
+          console.log(
+            `Аутентификация пользователя ${userId} для сокета ${socket.id}`
+          )
 
           // Инициализируем структуру для пользователя если её нет
           if (!this.userSockets.has(userId)) {
@@ -53,7 +55,9 @@ class WebSocketService {
           socket.userId = userId
           socket.sessionId = sessionId
 
-          console.log(`Пользователь ${userId} аутентифицирован, сессия: ${sessionId}`)
+          console.log(
+            `Пользователь ${userId} аутентифицирован, сессия: ${sessionId}`
+          )
         } catch (error) {
           console.error('Ошибка при аутентификации сокета:', error)
           socket.disconnect(true)
@@ -63,7 +67,7 @@ class WebSocketService {
       // Обработка ping от клиента для поддержания соединения
       socket.on('ping', (timestamp) => {
         socket.emit('pong', timestamp) // Возвращаем тот же timestamp
-        
+
         // Обновляем время последнего ping
         if (socket.userId && this.userSockets.has(socket.userId)) {
           const userSocketsMap = this.userSockets.get(socket.userId)
@@ -83,13 +87,15 @@ class WebSocketService {
           if (userSocketsMap) {
             // Правильно удаляем сокет из Map
             userSocketsMap.delete(socket.id)
-            
+
             // Если у пользователя не осталось активных сокетов
             if (userSocketsMap.size === 0) {
               this.userSockets.delete(socket.userId)
               console.log(`Все сокеты пользователя ${socket.userId} отключены`)
             } else {
-              console.log(`У пользователя ${socket.userId} осталось активных сокетов: ${userSocketsMap.size}`)
+              console.log(
+                `У пользователя ${socket.userId} осталось активных сокетов: ${userSocketsMap.size}`
+              )
             }
           }
         }
@@ -127,13 +133,15 @@ class WebSocketService {
         const timeSinceLastPing = now - socketData.lastPing
 
         if (timeSinceLastPing > staleThreshold) {
-          console.log(`Удаляем устаревшее соединение: ${socketId} пользователя ${userId}`)
+          console.log(
+            `Удаляем устаревшее соединение: ${socketId} пользователя ${userId}`
+          )
           socketsToRemove.push(socketId)
         }
       }
 
       // Удаляем устаревшие сокеты
-      socketsToRemove.forEach(socketId => {
+      socketsToRemove.forEach((socketId) => {
         userSocketsMap.delete(socketId)
       })
 
@@ -147,9 +155,47 @@ class WebSocketService {
   // Получение активных сокетов пользователя
   getUserSockets(userId) {
     const userSocketsMap = this.userSockets.get(userId)
+    if (!userSocketsMap) {
+      return []
+    }
+
+    // Возвращаем массив объектов с полной информацией о сокетах
+    return Array.from(userSocketsMap.entries()).map(
+      ([socketId, socketData]) => ({
+        socketId,
+        sessionId: socketData.sessionId,
+        connectedAt: socketData.connectedAt,
+        lastPing: socketData.lastPing,
+        isStale: new Date() - socketData.lastPing > 5 * 60 * 1000 // 5 минут
+      })
+    )
+  }
+
+  // Получение только ID сокетов (если нужно для совместимости)
+  getUserSocketIds(userId) {
+    const userSocketsMap = this.userSockets.get(userId)
+    if (!userSocketsMap) {
+      return []
+    }
+    return Array.from(userSocketsMap.keys())
+  }
+
+  // Получение сокетов в формате entries (как было раньше)
+  getUserSocketEntries(userId) {
+    const userSocketsMap = this.userSockets.get(userId)
     return userSocketsMap ? Array.from(userSocketsMap.entries()) : []
   }
 
+  // Проверка существования пользователя
+  hasUser(userId) {
+    return this.userSockets.has(userId)
+  }
+
+  // Получение количества сокетов пользователя
+  getUserSocketCount(userId) {
+    const userSocketsMap = this.userSockets.get(userId)
+    return userSocketsMap ? userSocketsMap.size : 0
+  }
   // Уведомление пользователя о завершении сессии
   async notifySessionTermination(userId, sessionId) {
     try {
@@ -169,19 +215,27 @@ class WebSocketService {
       for (const [socketId, socketData] of userSocketsMap.entries()) {
         if (socketData.sessionId === sessionId) {
           try {
-            console.log(`Отправляем уведомление о завершении сессии на сокет ${socketId}`)
+            console.log(
+              `Отправляем уведомление о завершении сессии на сокет ${socketId}`
+            )
             this.io.to(socketId).emit('sessionTerminated', {
               sessionId,
               message: 'Ваша сессия была завершена'
             })
           } catch (error) {
-            console.error(`Ошибка при отправке уведомления на сокет ${socketId}:`, error)
+            console.error(
+              `Ошибка при отправке уведомления на сокет ${socketId}:`,
+              error
+            )
           }
           break
         }
       }
     } catch (error) {
-      console.error('Ошибка при отправке уведомления о завершении сессии:', error)
+      console.error(
+        'Ошибка при отправке уведомления о завершении сессии:',
+        error
+      )
     }
   }
 
@@ -203,7 +257,10 @@ class WebSocketService {
             console.log(`Отправляем обновление сессий на сокет ${socketId}`)
             this.io.to(socketId).emit('sessionsUpdated', sessions)
           } catch (error) {
-            console.error(`Ошибка при отправке обновления сессий на сокет ${socketId}:`, error)
+            console.error(
+              `Ошибка при отправке обновления сессий на сокет ${socketId}:`,
+              error
+            )
           }
         }
       }
@@ -224,12 +281,14 @@ class WebSocketService {
       stats.totalSockets += userSocketsMap.size
       stats.userDetails[userId] = {
         socketCount: userSocketsMap.size,
-        sockets: Array.from(userSocketsMap.entries()).map(([socketId, data]) => ({
-          socketId,
-          sessionId: data.sessionId,
-          connectedAt: data.connectedAt,
-          lastPing: data.lastPing
-        }))
+        sockets: Array.from(userSocketsMap.entries()).map(
+          ([socketId, data]) => ({
+            socketId,
+            sessionId: data.sessionId,
+            connectedAt: data.connectedAt,
+            lastPing: data.lastPing
+          })
+        )
       }
     }
 

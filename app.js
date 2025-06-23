@@ -59,8 +59,11 @@ app.use('/api', require('./routes/opengraph.routes'))
 // Маршруты для мониторинга WebSocket
 app.use('/api/websocket', require('./routes/websocket.routes'))
 
-// Административные маршруты 
+// Административные маршруты
 app.use('/api/admin', require('./routes/admin.routes'))
+
+// Web Push маршруты
+app.use('/api/push', require('./routes/push.routes'))
 
 // Базовый роут для проверки работы сервера
 app.get('/', (req, res) => {

@@ -63,13 +63,8 @@ router.get('/user/:userId', (req, res) => {
       userId,
       timestamp: new Date().toISOString(),
       socketCount: userSockets.length,
-      sockets: userSockets.map(([socketId, data]) => ({
-        socketId,
-        sessionId: data.sessionId,
-        connectedAt: data.connectedAt,
-        lastPing: data.lastPing,
-        isStale: new Date() - data.lastPing > 5 * 60 * 1000 // 5 минут
-      }))
+      isConnected: userSockets.length > 0,
+      sockets: userSockets // Теперь это уже массив объектов с полной информацией
     })
   } catch (error) {
     console.error('Ошибка при получении информации о пользователе:', error)
@@ -97,12 +92,12 @@ router.post('/test-message/:userId', (req, res) => {
     }
 
     // Отправляем тестовое сообщение всем сокетам пользователя
-    userSockets.forEach(([socketId, data]) => {
-      websocketService.io.to(socketId).emit('testMessage', {
+    userSockets.forEach(socketInfo => {
+      websocketService.io.to(socketInfo.socketId).emit('testMessage', {
         type,
         message: message || 'Тестовое сообщение от системы мониторинга',
         timestamp: new Date().toISOString(),
-        sessionId: data.sessionId
+        sessionId: socketInfo.sessionId
       })
     })
 
@@ -110,7 +105,11 @@ router.post('/test-message/:userId', (req, res) => {
       success: true,
       userId,
       messagesSent: userSockets.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      sentTo: userSockets.map(s => ({
+        socketId: s.socketId,
+        sessionId: s.sessionId
+      }))
     })
   } catch (error) {
     console.error('Ошибка при отправке тестового сообщения:', error)
@@ -146,6 +145,74 @@ router.post('/cleanup', (req, res) => {
     })
   } catch (error) {
     console.error('Ошибка при очистке соединений:', error)
+    res.status(500).json({
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
+// ДОПОЛНИТЕЛЬНЫЕ ЭНДПОИНТЫ для удобства отладки
+
+// Получение списка всех подключенных пользователей
+router.get('/users', (req, res) => {
+  try {
+    const stats = websocketService.getConnectionStats()
+    const users = Object.keys(stats.userDetails).map(userId => ({
+      userId,
+      socketCount: stats.userDetails[userId].socketCount,
+      isConnected: stats.userDetails[userId].socketCount > 0
+    }))
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      totalUsers: users.length,
+      users
+    })
+  } catch (error) {
+    console.error('Ошибка при получении списка пользователей:', error)
+    res.status(500).json({
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
+// Проверка конкретного сокета
+router.get('/socket/:socketId', (req, res) => {
+  try {
+    const { socketId } = req.params
+    const stats = websocketService.getConnectionStats()
+    
+    let socketInfo = null
+    let userId = null
+
+    // Ищем сокет среди всех пользователей
+    for (const [uid, userDetails] of Object.entries(stats.userDetails)) {
+      const socket = userDetails.sockets.find(s => s.socketId === socketId)
+      if (socket) {
+        socketInfo = socket
+        userId = uid
+        break
+      }
+    }
+
+    if (!socketInfo) {
+      return res.status(404).json({
+        error: 'Сокет не найден',
+        socketId,
+        timestamp: new Date().toISOString()
+      })
+    }
+
+    res.json({
+      socketId,
+      userId,
+      timestamp: new Date().toISOString(),
+      socketInfo
+    })
+  } catch (error) {
+    console.error('Ошибка при получении информации о сокете:', error)
     res.status(500).json({
       error: error.message,
       timestamp: new Date().toISOString()
