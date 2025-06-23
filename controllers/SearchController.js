@@ -1,7 +1,7 @@
 const { prisma } = require('../prisma/prisma-client')
 
 const SearchController = {
-  async search (req, res) {
+  async search(req, res) {
     try {
       const { query, type = 'all', page = 1, limit = 10 } = req.query
       const currentUserId = req.user.id
@@ -62,7 +62,24 @@ const SearchController = {
         })
 
         searchResults.users = users
-          .map(user => {
+          .filter((user) => {
+            // Если showEmail разрешён — всегда показываем
+            if (user.showEmail) return true
+            // Если showEmail запрещён — проверяем, было ли совпадение по другим полям
+            const queryLower = query.toLowerCase()
+            return (
+              (user.name && user.name.toLowerCase().includes(queryLower)) ||
+              (user.userName &&
+                user.userName.toLowerCase().includes(queryLower)) ||
+              (user.bio &&
+                user.showBio &&
+                user.bio.toLowerCase().includes(queryLower)) ||
+              (user.location &&
+                user.showLocation &&
+                user.location.toLowerCase().includes(queryLower))
+            )
+          })
+          .map((user) => {
             return {
               id: user.id,
               name: user.name,
