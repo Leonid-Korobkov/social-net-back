@@ -2,6 +2,7 @@ const { prisma } = require('../prisma/prisma-client')
 const cloudinary = require('cloudinary').v2
 const emailService = require('../services/email.service')
 const { stripHtml } = require('../utils/stripHtml')
+const { optimizeCloudinaryImage } = require('../utils/cloudinary')
 
 const PostController = {
   async createPost(req, res) {

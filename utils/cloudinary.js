@@ -1,5 +1,5 @@
 // Функция для преобразования Cloudinary URL в JPG формат
-function optimizeCloudinaryImage(imageUrl, width = 1000) {
+export function optimizeCloudinaryImage(imageUrl, width = 1000) {
   if (!imageUrl) return ''
   if (!imageUrl.includes('cloudinary.com')) return imageUrl
 
