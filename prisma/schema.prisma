@@ -10,37 +10,50 @@ datasource db {
 }
 
 model User {
-  id                  Int                 @id @default(autoincrement())
-  email               String              @unique
-  password            String
-  name                String?
-  userName            String?             @unique
-  avatarUrl           String?
-  dateOfBirth         DateTime?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  bio                 String?
-  location            String?
-  posts               Post[]
-  likes               Like[]
-  comments            Comment[]
-  followers           Follows[]           @relation("following")
-  following           Follows[]           @relation("followers")
-  commentLike         CommentLike[]
-  showEmail           Boolean             @default(false)
-  showBio             Boolean             @default(true)
-  showLocation        Boolean             @default(true)
-  showDateOfBirth     Boolean             @default(true)
-  reduceAnimation     Boolean             @default(false)
-  PostView            PostView[]
-  PostShare           PostShare[]
-  emailVerifications  EmailVerification[]
-  passwordResets      PasswordReset[]
-  isEmailVerified     Boolean             @default(false)
-  lastLoginAt         DateTime?
-  failedLoginAttempts Int                 @default(0)
-  lockedUntil         DateTime?
-  PushSubscription    PushSubscription[]
+  id                       Int                 @id @default(autoincrement())
+  email                    String              @unique
+  password                 String
+  name                     String?
+  userName                 String?             @unique
+  avatarUrl                String?
+  dateOfBirth              DateTime?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  bio                      String?
+  location                 String?
+  posts                    Post[]
+  likes                    Like[]
+  comments                 Comment[]
+  followers                Follows[]           @relation("following")
+  following                Follows[]           @relation("followers")
+  commentLike              CommentLike[]
+  showEmail                Boolean             @default(false)
+  showBio                  Boolean             @default(true)
+  showLocation             Boolean             @default(true)
+  showDateOfBirth          Boolean             @default(true)
+  reduceAnimation          Boolean             @default(false)
+  PostView                 PostView[]
+  PostShare                PostShare[]
+  emailVerifications       EmailVerification[]
+  passwordResets           PasswordReset[]
+  isEmailVerified          Boolean             @default(false)
+  lastLoginAt              DateTime?
+  failedLoginAttempts      Int                 @default(0)
+  lockedUntil              DateTime?
+  PushSubscription         PushSubscription[]
+  enablePushNotifications  Boolean             @default(true)
+  enableEmailNotifications Boolean             @default(true)
+
+  notifyOnNewPostPush      Boolean @default(true)
+  notifyOnNewPostEmail     Boolean @default(true)
+  notifyOnNewCommentPush   Boolean @default(true)
+  notifyOnNewCommentEmail  Boolean @default(true)
+  notifyOnLikePush         Boolean @default(true)
+  notifyOnLikeEmail        Boolean @default(true)
+  notifyOnRepostPush       Boolean @default(true)
+  notifyOnRepostEmail      Boolean @default(true)
+  notifyOnNewFollowerPush  Boolean @default(true)
+  notifyOnNewFollowerEmail Boolean @default(true)
 
   @@index([email])
   @@index([name])

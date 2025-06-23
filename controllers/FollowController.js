@@ -1,7 +1,7 @@
 const { prisma } = require('../prisma/prisma-client')
 
 const FollowController = {
-  async followUser (req, res) {
+  async followUser(req, res) {
     let { followingId } = req.body
     const userId = req.user.id
 
@@ -52,13 +52,74 @@ const FollowController = {
       })
 
       res.status(201).json({ message: 'Подписка создана', follow })
+
+      // Уведомления — после ответа, асинхронно
+      ;(async () => {
+        // Получаем данные о подписываемом и подписчике одним запросом
+        const [followedUser, followerUser] = await prisma.$transaction([
+          prisma.user.findUnique({
+            where: { id: followingId },
+            select: {
+              email: true,
+              enablePushNotifications: true,
+              enableEmailNotifications: true,
+              notifyOnNewFollowerPush: true,
+              notifyOnNewFollowerEmail: true
+            }
+          }),
+          prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, userName: true, avatarUrl: true }
+          })
+        ])
+        // Email
+        if (
+          followedUser?.enableEmailNotifications &&
+          followedUser?.notifyOnNewFollowerEmail &&
+          followedUser.email
+        ) {
+          // Здесь можно использовать emailService.sendNewFollowerEmail
+          // await emailService.sendNewFollowerEmail(followedUser.email, followerUser.userName, followerUser.name)
+        }
+        // Push
+        if (
+          followedUser?.enablePushNotifications &&
+          followedUser?.notifyOnNewFollowerPush
+        ) {
+          const pushSubscriptions = await prisma.pushSubscription.findMany({
+            where: { userId: followingId }
+          })
+          const { FRONTEND_URL } = require('../contstants')
+          const webpush = require('../services/webpush.service')
+          for (const sub of pushSubscriptions) {
+            try {
+              await webpush.sendNotification(
+                {
+                  endpoint: sub.endpoint,
+                  keys: sub.keys
+                },
+                JSON.stringify({
+                  title: `Новый подписчик!`,
+                  body: `У вас новый подписчик: ${followerUser.userName || followerUser.name}`,
+                  url: `${FRONTEND_URL}/${followerUser.userName}`,
+                  icon:
+                    followerUser.avatarUrl ||
+                    'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+                })
+              )
+            } catch (err) {
+              console.log('Ошибка при отправке пуша: ', err)
+            }
+          }
+        }
+      })()
     } catch (error) {
       console.error('Error in followUser', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
 
-  async unfollowUser (req, res) {
+  async unfollowUser(req, res) {
     let { followingId } = req.body
     const userId = req.user.id
 

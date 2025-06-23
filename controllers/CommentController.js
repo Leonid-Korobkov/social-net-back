@@ -37,82 +37,90 @@ const CommentController = {
 
       res.json({ updatedPost, comment })
 
-      // Получаем данные о посте и его авторе
-      const post = await prisma.post.findUnique({
-        where: { id: postId },
-        select: {
-          id: true,
-          content: true,
-          media: true,
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              userName: true
+      // Уведомления — после ответа, асинхронно
+      ;(async () => {
+        // Получаем все нужные данные одним запросом
+        const post = await prisma.post.findUnique({
+          where: { id: postId },
+          select: {
+            id: true,
+            content: true,
+            media: true,
+            imageUrl: true,
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                userName: true,
+                avatarUrl: true,
+                enableEmailNotifications: true,
+                enablePushNotifications: true,
+                notifyOnNewCommentPush: true,
+                notifyOnNewCommentEmail: true
+              }
             }
           }
-        }
-      })
-
-      // Не отправляем письмо, если автор сам себе пишет комментарий
-      if (
-        post &&
-        post.author &&
-        post.author.id !== userId &&
-        post.author.email
-      ) {
-        // Получаем данные о комментаторе
+        })
+        if (!post || !post.author || post.author.id === userId) return
         const commenter = await prisma.user.findUnique({
           where: { id: userId },
           select: { name: true, userName: true, email: true, avatarUrl: true }
         })
-
-        // Опционально: превью картинки (берём первую из media, если есть)
         let postPreviewImage = undefined
         if (Array.isArray(post.media) && post.media.length > 0) {
           postPreviewImage = post.media[0]
         } else if (post.imageUrl) {
           postPreviewImage = post.imageUrl
         }
-
-        await emailService.sendNewCommentEmail(
-          post.author.email,
-          commenter.userName || commenter.name || 'Пользователь',
-          stripHtml(content),
-          post.id,
-          post.author.userName,
-          post.author.email,
-          stripHtml(post.content),
-          optimizeCloudinaryImage(postPreviewImage)
-        )
-
-        // Web Push: отправляем push-уведомление автору поста
-        const pushSubscriptions = await prisma.pushSubscription.findMany({
-          where: { userId: post.author.id }
-        })
-        const webpush = require('../services/webpush.service')
-        for (const sub of pushSubscriptions) {
-          try {
-            await webpush.sendNotification(
-              {
-                endpoint: sub.endpoint,
-                keys: sub.keys
-              },
-              JSON.stringify({
-                title: `Новый комментарий к вашему посту!`,
-                body: `${commenter.userName || commenter.name || 'Пользователь'}: ${stripHtml(content).slice(0, 100)}`,
-                url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
-                icon:
-                  commenter.avatarUrl ||
-                  'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
-              })
-            )
-          } catch (err) {
-            // Можно удалить невалидную подписку при ошибке
+        // Email уведомление
+        if (
+          post.author.enableEmailNotifications &&
+          post.author.notifyOnNewCommentEmail &&
+          post.author.email
+        ) {
+          await emailService.sendNewCommentEmail(
+            post.author.email,
+            commenter.userName || commenter.name || 'Пользователь',
+            stripHtml(content),
+            post.id,
+            post.author.userName,
+            post.author.email,
+            stripHtml(post.content),
+            optimizeCloudinaryImage(postPreviewImage)
+          )
+        }
+        // Web Push
+        if (
+          post.author.enablePushNotifications &&
+          post.author.notifyOnNewCommentPush
+        ) {
+          const pushSubscriptions = await prisma.pushSubscription.findMany({
+            where: { userId: post.author.id }
+          })
+          const webpush = require('../services/webpush.service')
+          for (const sub of pushSubscriptions) {
+            try {
+              await webpush.sendNotification(
+                {
+                  endpoint: sub.endpoint,
+                  keys: sub.keys
+                },
+                JSON.stringify({
+                  title: `Новый комментарий к вашему посту!`,
+                  body: `${commenter.userName || commenter.name || 'Пользователь'}: ${stripHtml(content).slice(0, 100)}`,
+                  url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
+                  icon:
+                    commenter.avatarUrl ||
+                    'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+                })
+              )
+            } catch (err) {
+              console.log('Ошибка при отправке пуша: ', err)
+            }
           }
         }
-      }
+      })()
     } catch (error) {
       console.error('Error in createComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })

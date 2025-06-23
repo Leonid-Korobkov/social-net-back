@@ -381,53 +381,55 @@ const UserController = {
         `[Login] User: ${user.email} (${user.userName}), IP: ${session.ipAddress}, Data:`,
         session
       )
-
-      const loginTime = new Date(session.timestamp).toLocaleString('ru-RU', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZone: 'Europe/Moscow'
-      })
-
-      emailService.sendNewLoginEmail(
-        session.ipAddress,
-        `${session.device} (${session.browser}, ${session.os})`,
-        `${session.location.city}, ${session.location.region1}, ${session.location.country}`,
-        loginTime,
-        user.email
-      )
-
-      // Web Push: отправляем push-уведомление о входе в аккаунт
-      const pushSubscriptions = await prisma.pushSubscription.findMany({
-        where: { userId: user.id }
-      })
-      for (const sub of pushSubscriptions) {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: sub.keys
-            },
-            JSON.stringify({
-              title: `Вход в аккаунт Zling`,
-              body: `Выполнен вход с устройства: ${session.device} (${session.browser}, ${session.os}) по IP: ${session.ipAddress}`,
-              url: '/',
-              icon: session.user.avatarUrl || undefined
-            })
-          )
-        } catch (err) {
-          // Можно удалить невалидную подписку при ошибке
-        }
-      }
-
       await websocketService.notifySessionUpdate(user.id, session.sessionId)
 
       res.json({
         user: session.user
       })
+
+      // Уведомления — после ответа, асинхронно
+      ;(async () => {
+        const loginTime = new Date(session.timestamp).toLocaleString('ru-RU', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'Europe/Moscow'
+        })
+        emailService.sendNewLoginEmail(
+          session.ipAddress,
+          `${session.device} (${session.browser}, ${session.os})`,
+          `${session.location.city}, ${session.location.region1}, ${session.location.country}`,
+          loginTime,
+          user.email
+        )
+        // Web Push: отправляем push-уведомление о входе в аккаунт
+        const pushSubscriptions = await prisma.pushSubscription.findMany({
+          where: { userId: user.id }
+        })
+        for (const sub of pushSubscriptions) {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: sub.keys
+              },
+              JSON.stringify({
+                title: `Вход в аккаунт Zling`,
+                body: `Выполнен вход с устройства: ${session.device} (${session.browser}, ${session.os}): ${session.location.city} ${session.location.region1} ${session.location.country}`,
+                url: '/',
+                icon:
+                  session.user.avatarUrl ||
+                  'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+              })
+            )
+          } catch (err) {
+            // Можно удалить невалидную подписку при ошибке
+          }
+        }
+      })()
     } catch (error) {
       console.error('Error in login', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -723,7 +725,19 @@ const UserController = {
           showBio: true,
           showLocation: true,
           showDateOfBirth: true,
-          reduceAnimation: true
+          reduceAnimation: true,
+          enablePushNotifications: true,
+          enableEmailNotifications: true,
+          notifyOnNewPostPush: true,
+          notifyOnNewPostEmail: true,
+          notifyOnNewCommentPush: true,
+          notifyOnNewCommentEmail: true,
+          notifyOnLikePush: true,
+          notifyOnLikeEmail: true,
+          notifyOnRepostPush: true,
+          notifyOnRepostEmail: true,
+          notifyOnNewFollowerPush: true,
+          notifyOnNewFollowerEmail: true
         }
       })
       res.json(settings)
@@ -740,7 +754,19 @@ const UserController = {
         showBio,
         showLocation,
         showDateOfBirth,
-        reduceAnimation
+        reduceAnimation,
+        enablePushNotifications,
+        enableEmailNotifications,
+        notifyOnNewPostPush,
+        notifyOnNewPostEmail,
+        notifyOnNewCommentPush,
+        notifyOnNewCommentEmail,
+        notifyOnLikePush,
+        notifyOnLikeEmail,
+        notifyOnRepostPush,
+        notifyOnRepostEmail,
+        notifyOnNewFollowerPush,
+        notifyOnNewFollowerEmail
       } = req.body
 
       const updatedUser = await prisma.user.update({
@@ -750,7 +776,55 @@ const UserController = {
           showBio: Boolean(showBio),
           showLocation: Boolean(showLocation),
           showDateOfBirth: Boolean(showDateOfBirth),
-          reduceAnimation: Boolean(reduceAnimation)
+          reduceAnimation: Boolean(reduceAnimation),
+          enablePushNotifications:
+            enablePushNotifications !== undefined
+              ? Boolean(enablePushNotifications)
+              : undefined,
+          enableEmailNotifications:
+            enableEmailNotifications !== undefined
+              ? Boolean(enableEmailNotifications)
+              : undefined,
+          notifyOnNewPostPush:
+            notifyOnNewPostPush !== undefined
+              ? Boolean(notifyOnNewPostPush)
+              : undefined,
+          notifyOnNewPostEmail:
+            notifyOnNewPostEmail !== undefined
+              ? Boolean(notifyOnNewPostEmail)
+              : undefined,
+          notifyOnNewCommentPush:
+            notifyOnNewCommentPush !== undefined
+              ? Boolean(notifyOnNewCommentPush)
+              : undefined,
+          notifyOnNewCommentEmail:
+            notifyOnNewCommentEmail !== undefined
+              ? Boolean(notifyOnNewCommentEmail)
+              : undefined,
+          notifyOnLikePush:
+            notifyOnLikePush !== undefined
+              ? Boolean(notifyOnLikePush)
+              : undefined,
+          notifyOnLikeEmail:
+            notifyOnLikeEmail !== undefined
+              ? Boolean(notifyOnLikeEmail)
+              : undefined,
+          notifyOnRepostPush:
+            notifyOnRepostPush !== undefined
+              ? Boolean(notifyOnRepostPush)
+              : undefined,
+          notifyOnRepostEmail:
+            notifyOnRepostEmail !== undefined
+              ? Boolean(notifyOnRepostEmail)
+              : undefined,
+          notifyOnNewFollowerPush:
+            notifyOnNewFollowerPush !== undefined
+              ? Boolean(notifyOnNewFollowerPush)
+              : undefined,
+          notifyOnNewFollowerEmail:
+            notifyOnNewFollowerEmail !== undefined
+              ? Boolean(notifyOnNewFollowerEmail)
+              : undefined
         }
       })
 

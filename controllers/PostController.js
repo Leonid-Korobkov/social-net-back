@@ -44,79 +44,89 @@ const PostController = {
         }
       })
 
-      // Получаем email всех подписчиков автора
-      const followers = await prisma.follows.findMany({
-        where: { followingId: userId },
-        select: {
-          follower: {
-            select: {
-              email: true
+      res.json(post)
+
+      // Уведомления — после ответа, асинхронно
+      ;(async () => {
+        // Получаем email и настройки всех подписчиков автора одним запросом
+        const followers = await prisma.follows.findMany({
+          where: { followingId: userId },
+          select: {
+            follower: {
+              select: {
+                id: true,
+                email: true,
+                enablePushNotifications: true,
+                enableEmailNotifications: true,
+                notifyOnNewPostPush: true,
+                notifyOnNewPostEmail: true
+              }
+            }
+          }
+        })
+        // Фильтруем только тех, у кого включены email-уведомления для новых постов
+        const subscriberEmails = followers
+          .filter(
+            (f) =>
+              f.follower?.enableEmailNotifications &&
+              f.follower?.notifyOnNewPostEmail
+          )
+          .map((f) => f.follower?.email)
+          .filter((email) => !!email)
+        let postPreviewImage = undefined
+        if (Array.isArray(post.media) && post.media.length > 0) {
+          postPreviewImage = post.media[0]
+        } else if (post.imageUrl) {
+          postPreviewImage = post.imageUrl
+        }
+        if (subscriberEmails.length > 0) {
+          Promise.allSettled(
+            subscriberEmails.map((email) =>
+              emailService.sendNewPostEmail(
+                email,
+                post.author.userName || post.author.name || 'Автор',
+                stripHtml(post.content),
+                post.id,
+                optimizeCloudinaryImage(postPreviewImage)
+              )
+            )
+          )
+        }
+        // Web Push: отправляем push-уведомления подписчикам только если включено для новых постов
+        const followerIds = followers
+          .filter(
+            (f) =>
+              f.follower?.enablePushNotifications &&
+              f.follower?.notifyOnNewPostPush
+          )
+          .map((f) => f.follower?.id)
+        if (followerIds.length > 0) {
+          const pushSubscriptions = await prisma.pushSubscription.findMany({
+            where: { userId: { in: followerIds } }
+          })
+          const webpush = require('../services/webpush.service')
+          for (const sub of pushSubscriptions) {
+            try {
+              await webpush.sendNotification(
+                {
+                  endpoint: sub.endpoint,
+                  keys: sub.keys
+                },
+                JSON.stringify({
+                  title: `Новый пост от ${post.author.userName || post.author.name}`,
+                  body: stripHtml(post.content).slice(0, 100),
+                  url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
+                  icon:
+                    post.author.avatarUrl ||
+                    'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+                })
+              )
+            } catch (err) {
+              console.log('Ошибка при отправке пуша: ', err)
             }
           }
         }
-      })
-      // Фильтруем только валидные email
-      const subscriberEmails = followers
-        .map((f) => f.follower?.email)
-        .filter((email) => !!email)
-
-      // Опционально: превью картинки (берём первую из media, если есть)
-      let postPreviewImage = undefined
-      if (Array.isArray(post.media) && post.media.length > 0) {
-        postPreviewImage = post.media[0]
-      } else if (post.imageUrl) {
-        postPreviewImage = post.imageUrl
-      }
-
-      // Рассылаем письма асинхронно (не ждём завершения)
-      if (subscriberEmails.length > 0) {
-        Promise.allSettled(
-          subscriberEmails.map((email) =>
-            emailService.sendNewPostEmail(
-              email,
-              post.author.userName || post.author.name || 'Автор',
-              stripHtml(post.content),
-              post.id,
-              optimizeCloudinaryImage(postPreviewImage)
-            )
-          )
-        ).then((results) => {
-          // Можно логировать результаты, если нужно
-        })
-      }
-
-      // Web Push: отправляем push-уведомления подписчикам
-      const followerIds = followers
-        .map((f) => f.follower?.id)
-        .filter((id) => !!id)
-      if (followerIds.length > 0) {
-        const pushSubscriptions = await prisma.pushSubscription.findMany({
-          where: { userId: { in: followerIds } }
-        })
-        const webpush = require('../services/webpush.service')
-        for (const sub of pushSubscriptions) {
-          try {
-            await webpush.sendNotification(
-              {
-                endpoint: sub.endpoint,
-                keys: sub.keys
-              },
-              JSON.stringify({
-                title: `Новый пост от ${post.author.userName || post.author.name}`,
-                body: stripHtml(post.content).slice(0, 100),
-                url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
-                icon:
-                  post.author.avatarUrl ||
-                  'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
-              })
-            )
-          } catch (err) {
-            // Можно удалить невалидную подписку при ошибке
-          }
-        }
-      }
-
-      res.json(post)
+      })()
     } catch (error) {
       console.error('Error in createPost', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -462,12 +472,72 @@ const PostController = {
         prisma.post.update({
           where: { id: parseInt(id) },
           data: { shareCount: { increment: 1 } },
-          select: { id: true, shareCount: true }
+          select: { id: true, authorId: true }
         }),
         prisma.postShare.create({
           data: { userId, postId: parseInt(id) }
         })
       ])
+
+      // Уведомления — после ответа, асинхронно
+      ;(async () => {
+        // Получаем автора поста и репостера одним запросом
+        const [postAuthor, reposter] = await prisma.$transaction([
+          prisma.user.findUnique({
+            where: { id: post.authorId },
+            select: {
+              email: true,
+              enablePushNotifications: true,
+              enableEmailNotifications: true,
+              notifyOnRepostPush: true,
+              notifyOnRepostEmail: true
+            }
+          }),
+          prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, userName: true, avatarUrl: true }
+          })
+        ])
+        // Email
+        if (
+          postAuthor?.enableEmailNotifications &&
+          postAuthor?.notifyOnRepostEmail &&
+          postAuthor.email
+        ) {
+          // Здесь можно использовать emailService.sendNewRepostEmail
+          // await emailService.sendNewRepostEmail(postAuthor.email, reposter.userName, reposter.name)
+        }
+        // Push
+        if (
+          postAuthor?.enablePushNotifications &&
+          postAuthor?.notifyOnRepostPush
+        ) {
+          const pushSubscriptions = await prisma.pushSubscription.findMany({
+            where: { userId: post.authorId }
+          })
+          const webpush = require('../services/webpush.service')
+          for (const sub of pushSubscriptions) {
+            try {
+              await webpush.sendNotification(
+                {
+                  endpoint: sub.endpoint,
+                  keys: sub.keys
+                },
+                JSON.stringify({
+                  title: `Ваш пост репостнули!`,
+                  body: `Пользователь ${reposter.userName || reposter.name} сделал репост вашего поста`,
+                  url: `/user/${reposter.userName}`,
+                  icon:
+                    reposter.avatarUrl ||
+                    'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+                })
+              )
+            } catch (err) {
+              console.log('Ошибка при отправке пуша: ', err)
+            }
+          }
+        }
+      })()
 
       res.json({ message: 'Запись о шеринге сохранена' })
     } catch (error) {

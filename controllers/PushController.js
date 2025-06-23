@@ -5,10 +5,23 @@ const PushController = {
   async subscribe(req, res) {
     const subscription = req.body
     const userId = req.user.id
-    console.log(subscription)
 
     if (!subscription || !subscription.endpoint) {
       return res.status(400).json({ error: 'Invalid subscription' })
+    }
+
+    // Проверяем настройки пользователя
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { enablePushNotifications: true }
+    })
+    if (!user?.enablePushNotifications) {
+      // Если push выключены — удаляем подписку, если есть, и не сохраняем новую
+      await prisma.pushSubscription.deleteMany({ where: { userId } })
+      return res.status(200).json({
+        success: false,
+        message: 'Push notifications are disabled in settings'
+      })
     }
 
     const payload = JSON.stringify({
@@ -33,6 +46,7 @@ const PushController = {
 
   async unsubscribe(req, res) {
     const { endpoint } = req.body
+    // Удаляем только по endpoint (быстрее, не ищем userId)
     await prisma.pushSubscription.deleteMany({ where: { endpoint } })
     res.json({ success: true })
   },

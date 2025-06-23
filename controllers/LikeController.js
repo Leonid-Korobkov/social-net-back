@@ -1,7 +1,8 @@
 const { prisma } = require('../prisma/prisma-client')
+const { stripHtml } = require('../utils/stripHtml')
 
 const LikeController = {
-  async likePost (req, res) {
+  async likePost(req, res) {
     let { postId } = req.body
     postId = parseInt(postId)
     const userId = req.user.id
@@ -36,13 +37,91 @@ const LikeController = {
       ])
 
       res.json({ message: 'Пост успешно лайкнут' })
+
+      // Уведомления — после ответа, асинхронно
+      ;(async () => {
+        // Получаем автора поста и лайкнувшего одним запросом
+        const post = await prisma.post.findUnique({
+          where: { id: postId },
+          select: {
+            createdAt: true,
+            content: true,
+            author: {
+              select: {
+                id: true,
+                email: true,
+                userName: true,
+                avatarUrl: true,
+                enablePushNotifications: true,
+                enableEmailNotifications: true,
+                notifyOnLikePush: true,
+                notifyOnLikeEmail: true
+              }
+            }
+          }
+        })
+        if (!post || !post.author) return
+        const liker = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, userName: true, avatarUrl: true }
+        })
+        const { FRONTEND_URL } = require('../contstants')
+        // Email
+        if (
+          post.author.enableEmailNotifications &&
+          post.author.notifyOnLikeEmail &&
+          post.author.email
+        ) {
+          // Здесь можно использовать emailService.sendNewLikeEmail
+          // await emailService.sendNewLikeEmail(post.author.email, liker.userName, liker.name)
+        }
+        // Push
+        if (
+          post.author.enablePushNotifications &&
+          post.author.notifyOnLikePush
+        ) {
+          const pushSubscriptions = await prisma.pushSubscription.findMany({
+            where: { userId: post.author.id }
+          })
+          const webpush = require('../services/webpush.service')
+          const loginTime = new Date(post.createdAt).toLocaleString('ru-RU', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZone: 'Europe/Moscow'
+          })
+          for (const sub of pushSubscriptions) {
+            try {
+              await webpush.sendNotification(
+                {
+                  endpoint: sub.endpoint,
+                  keys: sub.keys
+                },
+                JSON.stringify({
+                  title: `Ваш пост понравился!`,
+                  body: `Пользователь ${liker.userName || liker.name} поставил лайк вашему посту от ${loginTime} - ${stripHtml(post.content).slice(0, 50)}`,
+                  url: `${FRONTEND_URL}/${liker.userName}`,
+                  icon:
+                    liker.avatarUrl ||
+                    'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+                })
+              )
+            } catch (err) {
+              console.log('Ошибка при отправке пуша: ', err)
+            }
+          }
+        }
+      })()
     } catch (error) {
       console.error('Error in likePost', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
 
-  async unlikePost (req, res) {
+  async unlikePost(req, res) {
     let { postId } = req.body
     postId = parseInt(postId)
     const userId = req.user.id
@@ -82,7 +161,7 @@ const LikeController = {
     }
   },
 
-  async getLikes (req, res) {
+  async getLikes(req, res) {
     const currentUserId = req.user.id
     const { postId } = req.params
 
@@ -119,7 +198,7 @@ const LikeController = {
       })
 
       const sortedLikes = likes
-        .map(like => {
+        .map((like) => {
           return {
             ...like,
             user: {
