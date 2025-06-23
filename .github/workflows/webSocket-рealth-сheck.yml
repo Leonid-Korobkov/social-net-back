@@ -1,0 +1,182 @@
+name: WebSocket Health Check
+
+on:
+  workflow_dispatch: # Только ручной запуск
+    inputs:
+      check_type:
+        description: 'Тип проверки'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - basic
+          - full
+          - connections
+      user_id:
+        description: 'ID пользователя для тестирования (опционально)'
+        required: false
+        type: string
+
+jobs:
+  websocket-health:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Basic Server Health Check
+        run: |
+          echo "🔍 Проверяем базовое состояние сервера..."
+          response=$(curl -s -w "%{http_code}" -o /tmp/response.txt ${{ secrets.RENDER_URL }}/hello)
+          if [ "$response" = "200" ]; then
+            echo "✅ Сервер отвечает"
+          else
+            echo "❌ Сервер не отвечает (код: $response)"
+            exit 1
+          fi
+
+      - name: WebSocket Stats Check
+        run: |
+          echo "📊 Проверяем статистику WebSocket соединений..."
+          curl -s -X GET ${{ secrets.RENDER_URL }}/api/websocket/health \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" | jq '.' || echo "❌ WebSocket health endpoint недоступен"
+
+      - name: WebSocket Connections Check
+        if: ${{ github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'connections' }}
+        run: |
+          echo "🔌 Проверяем активные WebSocket соединения..."
+          connections=$(curl -s -X GET ${{ secrets.RENDER_URL }}/api/websocket/stats \
+          -H "Content-Type: application/json" \
+          -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" | jq '.totalSockets // 0')
+          echo "Активных соединений: $connections"
+
+          if [ "$connections" -gt 0 ]; then
+            echo "✅ Есть активные соединения"
+          else
+            echo "⚠️ Нет активных соединений"
+          fi
+
+      - name: WebSocket Connection Test
+        if: ${{ github.event.inputs.check_type == 'full' }}
+        run: |
+          echo "🧪 Тестируем WebSocket соединение..."
+
+          # Создаем простой Node.js скрипт для тестирования WebSocket
+          cat > test_websocket.js << 'EOF'
+          const io = require('socket.io-client');
+
+          const socket = io('${{ secrets.RENDER_URL }}', {
+            transports: ['polling'],
+            timeout: 10000
+          });
+
+          let testPassed = false;
+
+          socket.on('connect', () => {
+            console.log('✅ WebSocket подключение установлено');
+            testPassed = true;
+            socket.disconnect();
+            process.exit(0);
+          });
+
+          socket.on('connect_error', (error) => {
+            console.log('❌ Ошибка подключения WebSocket:', error.message);
+            process.exit(1);
+          });
+
+          setTimeout(() => {
+            if (!testPassed) {
+              console.log('❌ Timeout при подключении WebSocket');
+              process.exit(1);
+            }
+          }, 15000);
+          EOF
+
+          # Устанавливаем socket.io-client и запускаем тест
+          npm init -y > /dev/null 2>&1
+          npm install socket.io-client > /dev/null 2>&1
+          node test_websocket.js
+
+      - name: Force Score Recalculation
+        if: ${{ github.event.inputs.check_type == 'full' }}
+        run: |
+          echo "🔄 Запускаем принудительный пересчет скоров..."
+          response=$(curl -s -w "%{http_code}" -o /tmp/recalc_response.txt \
+            -X POST ${{ secrets.RENDER_URL }}/api/admin/recalculate-scores \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Пересчет скоров запущен"
+            cat /tmp/recalc_response.txt
+          else
+            echo "❌ Ошибка при запуске пересчета (код: $response)"
+            cat /tmp/recalc_response.txt
+          fi
+
+      - name: Clean Old Sessions
+        if: ${{ github.event.inputs.check_type == 'full' }}
+        run: |
+          echo "🧹 Очищаем старые сессии..."
+          response=$(curl -s -w "%{http_code}" -o /tmp/cleanup_response.txt \
+            -X POST ${{ secrets.RENDER_URL }}/api/admin/cleanup-sessions \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Очистка сессий выполнена"
+            cat /tmp/cleanup_response.txt
+          else
+            echo "❌ Ошибка при очистке сессий (код: $response)"
+            cat /tmp/cleanup_response.txt
+          fi
+
+      - name: Test User WebSocket (if user_id provided)
+        if: ${{ github.event.inputs.user_id != '' }}
+        run: |
+          echo "👤 Тестируем WebSocket для пользователя: ${{ github.event.inputs.user_id }}"
+
+          cat > test_user_websocket.js << 'EOF'
+          const io = require('socket.io-client');
+
+          const socket = io('${{ secrets.RENDER_URL }}', {
+            auth: {
+              userId: '${{ github.event.inputs.user_id }}'
+            },
+            transports: ['polling'],
+            timeout: 10000
+          });
+
+          socket.on('connect', () => {
+            console.log('✅ Подключение для пользователя установлено');
+            socket.emit('authenticate', '${{ github.event.inputs.user_id }}');
+            
+            setTimeout(() => {
+              socket.disconnect();
+              process.exit(0);
+            }, 3000);
+          });
+
+          socket.on('connect_error', (error) => {
+            console.log('❌ Ошибка подключения для пользователя:', error.message);
+            process.exit(1);
+          });
+
+          setTimeout(() => {
+            console.log('❌ Timeout при тестировании пользователя');
+            process.exit(1);
+          }, 15000);
+          EOF
+
+          node test_user_websocket.js
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "📋 Сводка проверки WebSocket:"
+          echo "- Тип проверки: ${{ github.event.inputs.check_type || 'basic' }}"
+          echo "- Время выполнения: $(date)"
+          echo "- URL сервера: ${{ secrets.RENDER_URL }}"
+
+          if [ "${{ github.event.inputs.user_id }}" != "" ]; then
+            echo "- Тестируемый пользователь: ${{ github.event.inputs.user_id }}"
+          fi
