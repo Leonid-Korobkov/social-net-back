@@ -16,7 +16,7 @@ const PushController = {
       body: 'This is your first push notification'
     })
 
-    webpush.sendNotification(subscription, payload).catch(console.log)
+    // webpush.sendNotification(subscription, payload).catch(console.log)
 
     await prisma.pushSubscription.upsert({
       where: { endpoint: subscription.endpoint },
