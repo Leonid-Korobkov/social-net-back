@@ -63,7 +63,7 @@ app.use('/api/websocket', require('./routes/websocket.routes'))
 app.use('/api/admin', require('./routes/admin.routes'))
 
 // Web Push маршруты
-app.use('/api/push', require('./routes/push.routes'))
+app.use('/apis/push', require('./routes/push.routes'))
 
 // Базовый роут для проверки работы сервера
 app.get('/', (req, res) => {
