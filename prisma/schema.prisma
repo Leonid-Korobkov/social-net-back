@@ -162,3 +162,21 @@ model PasswordReset {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+
+model AuthLog {
+  id         Int      @id @default(autoincrement())
+  sessionId  String
+  userId     Int
+  email      String
+  userName   String
+  name       String?
+  ipAddress  String
+  device     String
+  browser    String
+  browserVersion String?
+  os         String
+  location   Json
+  timestamp  DateTime
+  event      String   // 'login', 'register', 'verify', и т.д.
+}

@@ -2,33 +2,49 @@ const { prisma } = require('../prisma/prisma-client')
 const bcrypt = require('bcryptjs')
 const jdenticon = require('jdenticon')
 const cloudinary = require('cloudinary').v2
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require('uuid')
 const emailService = require('../services/email.service')
 const redisService = require('../services/redis.service')
-const {
-  generateVerificationCode,
-} = require('../utils/auth.utils')
+const { generateVerificationCode } = require('../utils/auth.utils')
 const requestIp = require('request-ip')
 const dns = require('dns')
 const { promisify } = require('util')
 const UAParser = require('ua-parser-js')
-const axios = require('axios');
-const websocketService = require('../services/websocket.service');
+const axios = require('axios')
+const websocketService = require('../services/websocket.service')
 
+// Список разрешённых доменов
+const allowedEmailDomains = [
+  'gmail.com',
+  'mail.ru',
+  'yandex.ru',
+  'yandex.com',
+  'outlook.com',
+  'icloud.com',
+  'rambler.ru',
+  'ya.ru'
+]
 
 // Helper function to validate email format and check MX records
 const validateEmail = async (email) => {
-  const domain = email.split('@')[1]
+  const domain = email.split('@')[1].toLowerCase()
+
+  // Проверка на разрешённые домены
+  if (!allowedEmailDomains.includes(domain)) {
+    throw new Error(
+      `Регистрация разрешена только для следующих доменов: ${allowedEmailDomains.join(', ')}`
+    )
+  }
 
   try {
     // Check MX records for the domain
     const resolveMx = promisify(dns.resolveMx)
     const mxRecords = await resolveMx(domain)
-    
+
     if (!mxRecords || mxRecords.length === 0) {
       throw new Error('Домен не имеет настроенных почтовых серверов')
     }
-    
+
     return true
   } catch (error) {
     if (error.code === 'ENOTFOUND' || error.code === 'ENODATA') {
@@ -38,20 +54,20 @@ const validateEmail = async (email) => {
   }
 }
 
-
-
 // Helper function to create session
 const createSession = async (user, req, res) => {
   const sessionId = uuidv4()
   const userAgent = new UAParser(req.headers['user-agent'])
   const ipAddress = requestIp.getClientIp(req)
 
-  let geo = {};
+  let geo = {}
   try {
-    const response = await axios.get(`http://ip-api.com/json/${ipAddress}?lang=ru`);
-    geo = response.data;
+    const response = await axios.get(
+      `http://ip-api.com/json/${ipAddress}?lang=ru`
+    )
+    geo = response.data
   } catch (error) {
-    console.error('Ошибка при получении геоданных с ip-api.com:', error);
+    console.error('Ошибка при получении геоданных с ip-api.com:', error)
   }
 
   const sessionData = {
@@ -66,7 +82,7 @@ const createSession = async (user, req, res) => {
       country: geo?.country || 'Неизвестно',
       city: geo?.city || 'Неизвестно',
       region1: geo?.regionName || 'Неизвестно',
-      region2: geo?.region || 'Неизвестно',
+      region2: geo?.region || 'Неизвестно'
     },
     timestamp: new Date().toISOString(),
     lastActivity: new Date().toISOString(),
@@ -79,13 +95,30 @@ const createSession = async (user, req, res) => {
       avatarUrl: user.avatarUrl
     }
   }
-
   await redisService.setSession(sessionId, sessionData)
   res.cookie('sessionId', sessionId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'none',
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней в миллисекундах
+  })
+
+  await prisma.authLog.create({
+    data: {
+      sessionId: sessionData.sessionId,
+      userId: sessionData.userId,
+      email: sessionData.user.email,
+      userName: sessionData.user.userName,
+      name: sessionData.user.name,
+      ipAddress: sessionData.ipAddress,
+      device: sessionData.device,
+      browser: sessionData.browser,
+      browserVersion: sessionData.browserVersion,
+      os: sessionData.os,
+      location: sessionData.location,
+      timestamp: new Date(sessionData.timestamp),
+      event: req._authEvent || 'session'
+    }
   })
 
   return sessionData
@@ -179,6 +212,10 @@ const UserController = {
       // Отправляем email с кодом
       await emailService.sendVerificationEmail(email, verificationCode)
 
+      console.log(
+        `[REGISTER] User: ${user.email} (${user.userName}), IP: ${req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress}`
+      )
+
       res.json({
         id: user.id,
         message:
@@ -189,7 +226,9 @@ const UserController = {
       if (error.message === 'Email не существует') {
         return res.status(400).json({ error: 'Указанный email не существует' })
       }
-      return res.status(500).json({ error: error.message || 'Что-то пошло не так на сервере'  })
+      return res
+        .status(500)
+        .json({ error: error.message || 'Что-то пошло не так на сервере' })
     }
   },
 
@@ -226,8 +265,14 @@ const UserController = {
         where: { id: verification.id }
       })
 
+      req._authEvent = 'verify'
       // Создаем сессию после подтверждения email
       const session = await createSession(user, req, res)
+
+      console.log(
+        `[VERIFY_EMAIL] User: ${user.email} (${user.userName}), IP: ${session.ipAddress}, Data:`,
+        session
+      )
 
       res.json({
         message: 'Email успешно подтвержден',
@@ -327,18 +372,24 @@ const UserController = {
         }
       })
 
+      req._authEvent = 'login'
       // Создаем сессию после успешного входа
       const session = await createSession(user, req, res)
 
+      console.log(
+        `[Login] User: ${user.email} (${user.userName}), IP: ${session.ipAddress}, Data:`,
+        session
+      )
+
       const loginTime = new Date(session.timestamp).toLocaleString('ru-RU', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          timeZone: 'Europe/Moscow'
-        })
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'Europe/Moscow'
+      })
 
       emailService.sendNewLoginEmail(
         session.ipAddress,
@@ -348,7 +399,7 @@ const UserController = {
         user.email
       )
 
-      await websocketService.notifySessionUpdate(user.id, session.sessionId);
+      await websocketService.notifySessionUpdate(user.id, session.sessionId)
 
       res.json({
         user: session.user
@@ -818,7 +869,9 @@ const UserController = {
       const user = await prisma.user.findUnique({ where: { email } })
 
       if (!user) {
-        return res.status(404).json({ error: 'Пользователь с таким email не найден' })
+        return res
+          .status(404)
+          .json({ error: 'Пользователь с таким email не найден' })
       }
 
       const resetCode = generateVerificationCode() // Используем ту же логику для генерации кода
@@ -832,8 +885,8 @@ const UserController = {
         data: {
           userId: user.id,
           code: resetCode,
-          expiresAt,
-        },
+          expiresAt
+        }
       })
 
       await emailService.sendPasswordResetCode(email, resetCode)
@@ -864,16 +917,21 @@ const UserController = {
           userId: user.id,
           code: code,
           expiresAt: {
-            gt: new Date(),
-          },
-        },
+            gt: new Date()
+          }
+        }
       })
 
       if (!resetEntry) {
-        return res.status(400).json({ error: 'Неверный или истекший код сброса пароля' })
+        return res
+          .status(400)
+          .json({ error: 'Неверный или истекший код сброса пароля' })
       }
 
-      res.json({ message: 'Код подтвержден. Можно сбрасывать пароль.', userId: user.id })
+      res.json({
+        message: 'Код подтвержден. Можно сбрасывать пароль.',
+        userId: user.id
+      })
     } catch (error) {
       console.error('Error in verifyResetCode', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -884,7 +942,9 @@ const UserController = {
     const { email, code, newPassword } = req.body
 
     if (!email || !code || !newPassword) {
-      return res.status(400).json({ error: 'Email, код и новый пароль обязательны' })
+      return res
+        .status(400)
+        .json({ error: 'Email, код и новый пароль обязательны' })
     }
 
     try {
@@ -899,20 +959,22 @@ const UserController = {
           userId: user.id,
           code: code,
           expiresAt: {
-            gt: new Date(),
-          },
-        },
+            gt: new Date()
+          }
+        }
       })
 
       if (!resetEntry) {
-        return res.status(400).json({ error: 'Неверный или истекший код сброса пароля' })
+        return res
+          .status(400)
+          .json({ error: 'Неверный или истекший код сброса пароля' })
       }
 
       const hashPassword = await bcrypt.hash(newPassword, 10)
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { password: hashPassword },
+        data: { password: hashPassword }
       })
 
       // Удаляем использованный код сброса
