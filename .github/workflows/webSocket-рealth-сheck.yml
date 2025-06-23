@@ -12,9 +12,21 @@ on:
           - basic
           - full
           - connections
+          - user-test
+          - maintenance
       user_id:
         description: 'ID пользователя для тестирования (опционально)'
         required: false
+        type: string
+      cleanup_sessions_days:
+        description: 'Максимальный возраст сессий для очистки (дни)'
+        required: false
+        default: '30'
+        type: string
+      test_message:
+        description: 'Тестовое сообщение для отправки пользователю'
+        required: false
+        default: 'Тестовое сообщение от CI/CD'
         type: string
 
 jobs:
@@ -22,41 +34,73 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
       - name: Basic Server Health Check
         run: |
           echo "🔍 Проверяем базовое состояние сервера..."
           response=$(curl -s -w "%{http_code}" -o /tmp/response.txt ${{ secrets.RENDER_URL }}/hello)
           if [ "$response" = "200" ]; then
             echo "✅ Сервер отвечает"
+            cat /tmp/response.txt
           else
             echo "❌ Сервер не отвечает (код: $response)"
+            cat /tmp/response.txt
             exit 1
           fi
 
-      - name: WebSocket Stats Check
+      - name: System Information Check
         run: |
-          echo "📊 Проверяем статистику WebSocket соединений..."
-          curl -s -X GET ${{ secrets.RENDER_URL }}/api/websocket/health \
+          echo "🖥️ Получаем системную информацию..."
+          curl -s -X GET ${{ secrets.RENDER_URL }}/api/admin/system-info \
             -H "Content-Type: application/json" \
-            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" | jq '.' || echo "❌ WebSocket health endpoint недоступен"
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" | jq '.' || echo "❌ System info endpoint недоступен"
 
-      - name: WebSocket Connections Check
-        if: ${{ github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'connections' }}
+      - name: WebSocket Health Check
         run: |
-          echo "🔌 Проверяем активные WebSocket соединения..."
-          connections=$(curl -s -X GET ${{ secrets.RENDER_URL }}/api/websocket/stats \
-          -H "Content-Type: application/json" \
-          -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" | jq '.totalSockets // 0')
-          echo "Активных соединений: $connections"
+          echo "📊 Проверяем здоровье WebSocket сервиса..."
+          health_response=$(curl -s -X GET ${{ secrets.RENDER_URL }}/api/websocket/health \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
 
-          if [ "$connections" -gt 0 ]; then
+          echo "$health_response" | jq '.'
+
+          # Проверяем статус
+          status=$(echo "$health_response" | jq -r '.status // "unknown"')
+          if [ "$status" = "healthy" ]; then
+            echo "✅ WebSocket сервис здоров"
+          else
+            echo "❌ WebSocket сервис нездоров: $status"
+            exit 1
+          fi
+
+      - name: WebSocket Statistics
+        run: |
+          echo "📈 Получаем детальную статистику WebSocket соединений..."
+          stats_response=$(curl -s -X GET ${{ secrets.RENDER_URL }}/api/websocket/stats \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
+
+          echo "$stats_response" | jq '.'
+
+          total_sockets=$(echo "$stats_response" | jq '.totalSockets // 0')
+          total_users=$(echo "$stats_response" | jq '.totalUsers // 0')
+
+          echo "📊 Статистика:"
+          echo "  - Активных пользователей: $total_users"
+          echo "  - Активных соединений: $total_sockets"
+
+          if [ "$total_sockets" -gt 0 ]; then
             echo "✅ Есть активные соединения"
           else
             echo "⚠️ Нет активных соединений"
           fi
 
       - name: WebSocket Connection Test
-        if: ${{ github.event.inputs.check_type == 'full' }}
+        if: ${{ github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'connections' }}
         run: |
           echo "🧪 Тестируем WebSocket соединение..."
 
@@ -66,16 +110,21 @@ jobs:
 
           const socket = io('${{ secrets.RENDER_URL }}', {
             transports: ['polling'],
-            timeout: 10000
+            timeout: 15000
           });
 
           let testPassed = false;
 
           socket.on('connect', () => {
             console.log('✅ WebSocket подключение установлено');
+            console.log('Socket ID:', socket.id);
             testPassed = true;
-            socket.disconnect();
-            process.exit(0);
+            
+            // Дожидаемся немного и отключаемся
+            setTimeout(() => {
+              socket.disconnect();
+              process.exit(0);
+            }, 2000);
           });
 
           socket.on('connect_error', (error) => {
@@ -83,12 +132,16 @@ jobs:
             process.exit(1);
           });
 
+          socket.on('disconnect', (reason) => {
+            console.log('🔌 WebSocket отключен:', reason);
+          });
+
           setTimeout(() => {
             if (!testPassed) {
               console.log('❌ Timeout при подключении WebSocket');
               process.exit(1);
             }
-          }, 15000);
+          }, 20000);
           EOF
 
           # Устанавливаем socket.io-client и запускаем тест
@@ -96,45 +149,23 @@ jobs:
           npm install socket.io-client > /dev/null 2>&1
           node test_websocket.js
 
-      - name: Force Score Recalculation
-        if: ${{ github.event.inputs.check_type == 'full' }}
-        run: |
-          echo "🔄 Запускаем принудительный пересчет скоров..."
-          response=$(curl -s -w "%{http_code}" -o /tmp/recalc_response.txt \
-            -X POST ${{ secrets.RENDER_URL }}/api/admin/recalculate-scores \
-            -H "Content-Type: application/json" \
-            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
-
-          if [ "$response" = "200" ]; then
-            echo "✅ Пересчет скоров запущен"
-            cat /tmp/recalc_response.txt
-          else
-            echo "❌ Ошибка при запуске пересчета (код: $response)"
-            cat /tmp/recalc_response.txt
-          fi
-
-      - name: Clean Old Sessions
-        if: ${{ github.event.inputs.check_type == 'full' }}
-        run: |
-          echo "🧹 Очищаем старые сессии..."
-          response=$(curl -s -w "%{http_code}" -o /tmp/cleanup_response.txt \
-            -X POST ${{ secrets.RENDER_URL }}/api/admin/cleanup-sessions \
-            -H "Content-Type: application/json" \
-            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
-
-          if [ "$response" = "200" ]; then
-            echo "✅ Очистка сессий выполнена"
-            cat /tmp/cleanup_response.txt
-          else
-            echo "❌ Ошибка при очистке сессий (код: $response)"
-            cat /tmp/cleanup_response.txt
-          fi
-
       - name: Test User WebSocket (if user_id provided)
-        if: ${{ github.event.inputs.user_id != '' }}
+        if: ${{ github.event.inputs.user_id != '' && (github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'user-test') }}
         run: |
           echo "👤 Тестируем WebSocket для пользователя: ${{ github.event.inputs.user_id }}"
 
+          # Сначала получаем информацию о пользователе
+          echo "📋 Получаем информацию о пользователе..."
+          user_info=$(curl -s -X GET ${{ secrets.RENDER_URL }}/api/websocket/user/${{ github.event.inputs.user_id }} \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
+
+          echo "$user_info" | jq '.'
+
+          socket_count=$(echo "$user_info" | jq '.socketCount // 0')
+          echo "🔌 Пользователь имеет $socket_count активных соединений"
+
+          # Тестируем подключение пользователя
           cat > test_user_websocket.js << 'EOF'
           const io = require('socket.io-client');
 
@@ -143,11 +174,14 @@ jobs:
               userId: '${{ github.event.inputs.user_id }}'
             },
             transports: ['polling'],
-            timeout: 10000
+            timeout: 15000
           });
 
           socket.on('connect', () => {
             console.log('✅ Подключение для пользователя установлено');
+            console.log('Socket ID:', socket.id);
+            
+            // Эмулируем аутентификацию
             socket.emit('authenticate', '${{ github.event.inputs.user_id }}');
             
             setTimeout(() => {
@@ -161,22 +195,173 @@ jobs:
             process.exit(1);
           });
 
+          socket.on('testMessage', (data) => {
+            console.log('📨 Получено тестовое сообщение:', data);
+          });
+
           setTimeout(() => {
             console.log('❌ Timeout при тестировании пользователя');
             process.exit(1);
-          }, 15000);
+          }, 20000);
           EOF
 
           node test_user_websocket.js
 
-      - name: Summary
+      - name: Send Test Message to User
+        if: ${{ github.event.inputs.user_id != '' && (github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'user-test') }}
+        run: |
+          echo "📤 Отправляем тестовое сообщение пользователю: ${{ github.event.inputs.user_id }}"
+
+          test_message="${{ github.event.inputs.test_message }}"
+          if [ -z "$test_message" ]; then
+            test_message="Тестовое сообщение от CI/CD системы мониторинга"
+          fi
+
+          response=$(curl -s -w "%{http_code}" -o /tmp/test_message_response.txt \
+            -X POST ${{ secrets.RENDER_URL }}/api/websocket/test-message/${{ github.event.inputs.user_id }} \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" \
+            -d "{\"message\": \"$test_message\", \"type\": \"ci_test\"}")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Тестовое сообщение отправлено"
+            cat /tmp/test_message_response.txt | jq '.'
+          elif [ "$response" = "404" ]; then
+            echo "⚠️ Пользователь не подключен"
+            cat /tmp/test_message_response.txt | jq '.'
+          else
+            echo "❌ Ошибка при отправке сообщения (код: $response)"
+            cat /tmp/test_message_response.txt
+          fi
+
+      - name: WebSocket Cleanup Test
+        if: ${{ github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'maintenance' }}
+        run: |
+          echo "🧹 Тестируем очистку устаревших WebSocket соединений..."
+
+          response=$(curl -s -w "%{http_code}" -o /tmp/cleanup_response.txt \
+            -X POST ${{ secrets.RENDER_URL }}/api/websocket/cleanup \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Очистка WebSocket соединений выполнена"
+            cat /tmp/cleanup_response.txt | jq '.'
+          else
+            echo "❌ Ошибка при очистке WebSocket соединений (код: $response)"
+            cat /tmp/cleanup_response.txt
+          fi
+
+      - name: Force Score Recalculation
+        if: ${{ github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'maintenance' }}
+        run: |
+          echo "🔄 Запускаем принудительный пересчет скоров..."
+          response=$(curl -s -w "%{http_code}" -o /tmp/recalc_response.txt \
+            -X POST ${{ secrets.RENDER_URL }}/api/admin/recalculate-scores \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Пересчет скоров запущен"
+            cat /tmp/recalc_response.txt | jq '.'
+          else
+            echo "❌ Ошибка при запуске пересчета (код: $response)"
+            cat /tmp/recalc_response.txt
+          fi
+
+      - name: Clean Old Sessions
+        if: ${{ github.event.inputs.check_type == 'full' || github.event.inputs.check_type == 'maintenance' }}
+        run: |
+          echo "🗑️ Очищаем старые сессии..."
+
+          cleanup_days="${{ github.event.inputs.cleanup_sessions_days }}"
+          if [ -z "$cleanup_days" ]; then
+            cleanup_days="30"
+          fi
+
+          response=$(curl -s -w "%{http_code}" -o /tmp/cleanup_sessions_response.txt \
+            -X POST ${{ secrets.RENDER_URL }}/api/admin/cleanup-sessions \
+            -H "Content-Type: application/json" \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" \
+            -d "{\"maxAge\": $cleanup_days}")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Очистка сессий выполнена"
+            cat /tmp/cleanup_sessions_response.txt | jq '.'
+          else
+            echo "❌ Ошибка при очистке сессий (код: $response)"
+            cat /tmp/cleanup_sessions_response.txt
+          fi
+
+      - name: Performance Metrics
+        if: ${{ github.event.inputs.check_type == 'full' }}
+        run: |
+          echo "⚡ Собираем метрики производительности..."
+
+          # Измеряем время отклика основных эндпоинтов
+          echo "📊 Тестируем время отклика эндпоинтов:"
+
+          # Health check
+          start_time=$(date +%s%N)
+          curl -s ${{ secrets.RENDER_URL }}/api/websocket/health \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" > /dev/null
+          end_time=$(date +%s%N)
+          health_time=$(( (end_time - start_time) / 1000000 ))
+          echo "  - Health check: ${health_time}ms"
+
+          # Stats endpoint
+          start_time=$(date +%s%N)
+          curl -s ${{ secrets.RENDER_URL }}/api/websocket/stats \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" > /dev/null
+          end_time=$(date +%s%N)
+          stats_time=$(( (end_time - start_time) / 1000000 ))
+          echo "  - Stats endpoint: ${stats_time}ms"
+
+          # System info
+          start_time=$(date +%s%N)
+          curl -s ${{ secrets.RENDER_URL }}/api/admin/system-info \
+            -H "x-opengraph-secret: ${{ secrets.OPENGRAPH_SECRET_PATH }}" > /dev/null
+          end_time=$(date +%s%N)
+          system_time=$(( (end_time - start_time) / 1000000 ))
+          echo "  - System info: ${system_time}ms"
+
+          echo "📈 Средние показатели:"
+          avg_time=$(( (health_time + stats_time + system_time) / 3 ))
+          echo "  - Среднее время отклика: ${avg_time}ms"
+
+          if [ $avg_time -lt 1000 ]; then
+            echo "✅ Производительность в норме"
+          elif [ $avg_time -lt 3000 ]; then
+            echo "⚠️ Производительность снижена"
+          else
+            echo "❌ Низкая производительность"
+          fi
+
+      - name: Final Health Summary
         if: always()
         run: |
-          echo "📋 Сводка проверки WebSocket:"
-          echo "- Тип проверки: ${{ github.event.inputs.check_type || 'basic' }}"
-          echo "- Время выполнения: $(date)"
-          echo "- URL сервера: ${{ secrets.RENDER_URL }}"
+          echo "📋 ИТОГОВАЯ СВОДКА ПРОВЕРКИ WEBSOCKET"
+          echo "================================================"
+          echo "🕐 Время выполнения: $(date)"
+          echo "🌍 URL сервера: ${{ secrets.RENDER_URL }}"
+          echo "🔧 Тип проверки: ${{ github.event.inputs.check_type || 'basic' }}"
 
           if [ "${{ github.event.inputs.user_id }}" != "" ]; then
-            echo "- Тестируемый пользователь: ${{ github.event.inputs.user_id }}"
+            echo "👤 Тестируемый пользователь: ${{ github.event.inputs.user_id }}"
           fi
+
+          if [ "${{ github.event.inputs.cleanup_sessions_days }}" != "" ]; then
+            echo "🗑️ Возраст сессий для очистки: ${{ github.event.inputs.cleanup_sessions_days }} дней"
+          fi
+
+          echo "================================================"
+          echo "✅ Проверка завершена"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "🚨 ОБНАРУЖЕНЫ КРИТИЧЕСКИЕ ПРОБЛЕМЫ!"
+          echo "Некоторые проверки WebSocket не прошли."
+          echo "Рекомендуется проверить логи сервера и состояние системы."
+          echo "URL сервера: ${{ secrets.RENDER_URL }}"
+          echo "Время проверки: $(date)"

@@ -59,7 +59,7 @@ app.use('/api', require('./routes/opengraph.routes'))
 // Маршруты для мониторинга WebSocket
 app.use('/api/websocket', require('./routes/websocket.routes'))
 
-// Административные маршруты (рекомендуется добавить аутентификацию)
+// Административные маршруты 
 app.use('/api/admin', require('./routes/admin.routes'))
 
 // Базовый роут для проверки работы сервера
