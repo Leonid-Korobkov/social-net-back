@@ -1,16 +1,17 @@
 const { prisma } = require('../prisma/prisma-client')
 const cloudinary = require('cloudinary').v2
 const emailService = require('../services/email.service')
+const { stripHtml } = require('../utils/stripHtml')
 
 const PostController = {
-  async createPost (req, res) {
+  async createPost(req, res) {
     const { content, media } = req.body
     const userId = req.user.id
 
     try {
       // Убедимся, что media является массивом
       const mediaArray = Array.isArray(media) ? media : []
-      
+
       const post = await prisma.post.create({
         data: {
           content,
@@ -54,8 +55,8 @@ const PostController = {
       })
       // Фильтруем только валидные email
       const subscriberEmails = followers
-        .map(f => f.follower?.email)
-        .filter(email => !!email)
+        .map((f) => f.follower?.email)
+        .filter((email) => !!email)
 
       // Опционально: превью картинки (берём первую из media, если есть)
       let postPreviewImage = undefined
@@ -68,16 +69,16 @@ const PostController = {
       // Рассылаем письма асинхронно (не ждём завершения)
       if (subscriberEmails.length > 0) {
         Promise.allSettled(
-          subscriberEmails.map(email =>
+          subscriberEmails.map((email) =>
             emailService.sendNewPostEmail(
               email,
-              post.author.name || post.author.userName || 'Автор',
-              post.content,
+              post.author.userName || post.author.name || 'Автор',
+              stripHtml(post.content),
               post.id,
-              postPreviewImage
+              optimizeCloudinaryImage(postPreviewImage)
             )
           )
-        ).then(results => {
+        ).then((results) => {
           // Можно логировать результаты, если нужно
         })
       }
@@ -88,7 +89,7 @@ const PostController = {
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
-  async getAllPosts (req, res) {
+  async getAllPosts(req, res) {
     const userId = req.user.id
     const page = parseInt(req.query.page)
     const limit = parseInt(req.query.limit)
@@ -107,35 +108,23 @@ const PostController = {
           where: { followerId: userId },
           select: { followingId: true }
         })
-        const followingIds = following.map(f => f.followingId).filter(Boolean)
-        
+        const followingIds = following.map((f) => f.followingId).filter(Boolean)
+
         // Показываем посты только от пользователей, на которых подписан
         whereCondition.authorId = { in: followingIds }
-        orderBy = [
-          { score: 'desc' },
-          { createdAt: 'desc' }
-        ]
-      } 
-      else if (feedType === 'viewed') {
+        orderBy = [{ score: 'desc' }, { createdAt: 'desc' }]
+      } else if (feedType === 'viewed') {
         // Показываем только просмотренные посты
         whereCondition.PostView = {
           some: { userId }
         }
-      }
-      else if (feedType === 'for-you') {
+      } else if (feedType === 'for-you') {
         // Просто сортируем непросмотренные посты по score, updatedScoreAt и createdAt
         whereCondition.PostView = { none: { userId } }
         whereCondition.authorId = { not: userId }
-        orderBy = [
-          { score: 'desc' },
-          { createdAt: 'desc' }
-        ]
-      }
-      else if (feedType === 'top') {
-        orderBy = [
-          { score: 'desc' },
-          { createdAt: 'desc' }
-        ]
+        orderBy = [{ score: 'desc' }, { createdAt: 'desc' }]
+      } else if (feedType === 'top') {
+        orderBy = [{ score: 'desc' }, { createdAt: 'desc' }]
       }
       // Для 'new' оставляем пустые условия, чтобы показать все посты
 
@@ -167,30 +156,32 @@ const PostController = {
             where: { userId }
           }
         },
-        orderBy: orderBy,
-      },
-    )
+        orderBy: orderBy
+      })
 
       // Если это лента for-you, сортируем посты по порядку в finalIds
       let postsSorted = posts
       if (feedType === 'for-you' && typeof finalIds !== 'undefined') {
-        postsSorted = finalIds.map(id => posts.find(p => p.id === id)).filter(Boolean)
+        postsSorted = finalIds
+          .map((id) => posts.find((p) => p.id === id))
+          .filter(Boolean)
       }
 
       // Добавляем поля isFollowing и likedByUser
-      const postsWithLikesUserInfo = postsSorted.map(({ likes, author, comments, PostView, ...post }) => (
-      {
-        ...post,
-        author: {
-          id: author.id,
-          name: author.name,
-          userName: author.userName,
-          avatarUrl: author.avatarUrl
-        },
-        likedByUser: likes.some(like => like.userId === userId),
-        isFollowing: author.followers.length > 0,
-        viewed: PostView ? PostView.length > 0 : false
-      }))
+      const postsWithLikesUserInfo = postsSorted.map(
+        ({ likes, author, comments, PostView, ...post }) => ({
+          ...post,
+          author: {
+            id: author.id,
+            name: author.name,
+            userName: author.userName,
+            avatarUrl: author.avatarUrl
+          },
+          likedByUser: likes.some((like) => like.userId === userId),
+          isFollowing: author.followers.length > 0,
+          viewed: PostView ? PostView.length > 0 : false
+        })
+      )
 
       // Флаг "все просмотрено" для feedType 'for-you'
       let allViewed = false
@@ -206,7 +197,7 @@ const PostController = {
       const result = {
         data: postsWithLikesUserInfo,
         total: totalPosts,
-        allViewed, 
+        allViewed
       }
 
       res.json(result)
@@ -215,7 +206,7 @@ const PostController = {
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
-  async getPostsByUserId (req, res) {
+  async getPostsByUserId(req, res) {
     const currentUser = req.user.id
     const params = req.params
     let userId = params.userId
@@ -225,18 +216,18 @@ const PostController = {
 
     let username
     let userWithUsername
-    
+
     try {
       if (userId.toString().startsWith('@')) {
         username = userId.slice(1)
         userWithUsername = await prisma.user.findUnique({
-          where: {userName: username},
+          where: { userName: username }
         })
         userId = userWithUsername.id
       } else if (isNaN(userId)) {
         username = userId
         userWithUsername = await prisma.user.findUnique({
-          where: {userName: username},
+          where: { userName: username }
         })
         userId = userWithUsername.id
       } else {
@@ -244,7 +235,7 @@ const PostController = {
       }
 
       const totalPosts = await prisma.post.count({
-        where: { authorId: userId },
+        where: { authorId: userId }
       })
 
       // Получаем посты с пагинацией
@@ -269,23 +260,23 @@ const PostController = {
         },
         orderBy: {
           createdAt: 'desc'
-        },
-      },
-    )
+        }
+      })
 
       // Добавляем поля isFollowing и likedByUser
-      const postsWithLikesUserInfo = posts.map(({ likes, author, comments, ...post }) => (
-      {
-        ...post,
-        author: {
-          id: author.id,
-          name: author.name,
-          userName: author.userName,
-          avatarUrl: author.avatarUrl
-        },
-        likedByUser: likes.some(like => like.userId === currentUser),
-        isFollowing: author.followers.length > 0,
-      }))
+      const postsWithLikesUserInfo = posts.map(
+        ({ likes, author, comments, ...post }) => ({
+          ...post,
+          author: {
+            id: author.id,
+            name: author.name,
+            userName: author.userName,
+            avatarUrl: author.avatarUrl
+          },
+          likedByUser: likes.some((like) => like.userId === currentUser),
+          isFollowing: author.followers.length > 0
+        })
+      )
 
       // Устанавливаем заголовок с общим количеством постов
       res.setHeader('x-total-count', totalPosts.toString())
@@ -293,7 +284,7 @@ const PostController = {
 
       const result = {
         data: postsWithLikesUserInfo,
-        total: totalPosts,
+        total: totalPosts
       }
 
       res.json(result)
@@ -302,7 +293,7 @@ const PostController = {
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
-  async getPostById (req, res) {
+  async getPostById(req, res) {
     const { id } = req.params
     const userId = req.user.id
 
@@ -344,7 +335,7 @@ const PostController = {
           userName: post.author.userName,
           avatarUrl: post.author.avatarUrl
         },
-        likedByUser: post.likes.some(like => like.userId === userId),
+        likedByUser: post.likes.some((like) => like.userId === userId),
         isFollowing: post.author.followers.length > 0
       }
 
@@ -354,7 +345,7 @@ const PostController = {
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
-  async deletePost (req, res) {
+  async deletePost(req, res) {
     let { id } = req.params
     id = parseInt(id)
     const userId = req.user.id
@@ -412,7 +403,7 @@ const PostController = {
         })
       ])
 
-      res.json({message: "Пост успешно просмотрен"})
+      res.json({ message: 'Пост успешно просмотрен' })
     } catch (error) {
       console.error('Error in incrementViewCount', error)
       return res.status(500).json({ error: 'Не удалось увеличить viewCount' })
@@ -445,7 +436,7 @@ const PostController = {
         })
       ])
 
-      res.json({message: "Запись о шеринге сохранена"})
+      res.json({ message: 'Запись о шеринге сохранена' })
     } catch (error) {
       console.error('Error in incrementShareCount', error)
       return res.status(500).json({ error: 'Не удалось увеличить shareCount' })
@@ -455,7 +446,9 @@ const PostController = {
     const userId = req.user.id
     const { ids } = req.body
     if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: 'ids должен быть непустым массивом' })
+      return res
+        .status(400)
+        .json({ error: 'ids должен быть непустым массивом' })
     }
     try {
       // Получаем id постов, которые уже были просмотрены этим пользователем
@@ -466,9 +459,9 @@ const PostController = {
         },
         select: { postId: true }
       })
-      const alreadyViewedIds = new Set(alreadyViewed.map(v => v.postId))
+      const alreadyViewedIds = new Set(alreadyViewed.map((v) => v.postId))
       // Оставляем только те id, которые ещё не были просмотрены
-      const toView = ids.map(Number).filter(id => !alreadyViewedIds.has(id))
+      const toView = ids.map(Number).filter((id) => !alreadyViewedIds.has(id))
       if (toView.length === 0) return res.json({ viewed: [] })
       // Увеличиваем viewCount и сохраняем просмотры
       await prisma.$transaction([
@@ -476,12 +469,16 @@ const PostController = {
           where: { id: { in: toView } },
           data: { viewCount: { increment: 1 } }
         }),
-        ...toView.map(postId => prisma.postView.create({ data: { userId, postId } }))
+        ...toView.map((postId) =>
+          prisma.postView.create({ data: { userId, postId } })
+        )
       ])
       res.json({ viewed: toView })
     } catch (error) {
       console.error('Error in incrementViewsBatch', error)
-      return res.status(500).json({ error: 'Не удалось увеличить просмотры', errorMessage: error })
+      return res
+        .status(500)
+        .json({ error: 'Не удалось увеличить просмотры', errorMessage: error })
     }
   },
   async updatePost(req, res) {
@@ -511,7 +508,7 @@ const PostController = {
         content,
         imageUrl: req.file?.cloudinaryUrl || post.imageUrl
       }
-      
+
       // Добавляем media только если передан новый массив
       if (media) {
         updateData.media = media
@@ -526,7 +523,7 @@ const PostController = {
               id: true,
               name: true,
               userName: true,
-              avatarUrl: true,
+              avatarUrl: true
             }
           }
         }
@@ -558,19 +555,19 @@ const PostController = {
 
     return res.json({ url })
   },
-  async deleteMedia(req, res)  {
+  async deleteMedia(req, res) {
     try {
       const { url } = req.body
 
       if (!url) {
         return res.status(400).json({ error: 'URL файла не указан' })
       }
-  
+
       // Проверяем, является ли URL действительным URL Cloudinary
       if (!url.includes('cloudinary.com') || !url.includes('/upload/')) {
         return res.status(400).json({ error: 'Неверный формат URL Cloudinary' })
       }
-  
+
       // Извлекаем public_id из URL
       // Формат URL: https://res.cloudinary.com/{cloud_name}/image/upload/v{version}/{folder}/{public_id}.{format}
       // Пример: https://res.cloudinary.com/djsmqdror/image/upload/v1746799257/zling/25/dcq0ytx6yqwyc1qpu040.webp
@@ -580,39 +577,39 @@ const PostController = {
         if (uploadIndex === -1) {
           throw new Error('Не удалось найти /upload/ в URL')
         }
-  
+
         // Отрезаем всё до /upload/ включительно
         const pathAfterUpload = url.substring(uploadIndex + 8) // +8 = длина "/upload/"
-  
+
         // Разбираем оставшийся путь
         const pathParts = pathAfterUpload.split('/')
-  
+
         // Первая часть - это обычно версия (v1234567890)
         // Пропускаем её, если она начинается с 'v'
         let startIndex = 0
         if (pathParts[0].startsWith('v') && /^v\d+$/.test(pathParts[0])) {
           startIndex = 1
         }
-  
+
         // Объединяем все оставшиеся части пути, кроме расширения файла
         const remainingPath = pathParts.slice(startIndex).join('/')
-  
+
         // Удаляем расширение файла (.webp, .jpg и т.д.)
         const lastDotIndex = remainingPath.lastIndexOf('.')
         const publicId =
           lastDotIndex !== -1
             ? remainingPath.substring(0, lastDotIndex)
             : remainingPath
-  
+
         // Определяем тип ресурса (image или video)
         const resourceType = url.includes('/video/') ? 'video' : 'image'
-  
+
         // Используем метод delete_resources вместо destroy
         const result = await cloudinary.api.delete_resources([publicId], {
           type: 'upload',
           resource_type: resourceType
         })
-  
+
         return res.json({
           success: true,
           message: 'Файл успешно удален',
@@ -628,16 +625,16 @@ const PostController = {
           const publicIdWithoutExt = publicIdParts.slice(0, -1).join('.')
           const folderPath = urlParts[urlParts.length - 2] // Предпоследний сегмент URL
           const fullPublicId = `${folderPath}/${publicIdWithoutExt}`
-  
+
           // Определяем тип ресурса
           const resourceType = url.includes('/video/') ? 'video' : 'image'
-  
+
           // Пробуем метод destroy
           const result = await cloudinary.uploader.destroy(fullPublicId, {
             resource_type: resourceType,
             invalidate: true
           })
-  
+
           if (result.result === 'ok' || result.result === 'not found') {
             return res.json({
               success: true,

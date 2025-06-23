@@ -5,9 +5,10 @@ const VerificationEmail = require('../emails/VerificationEmail').default
 const ResetPasswordEmail = require('../emails/ResetPasswordEmail').default
 const NewLoginEmail = require('../emails/NewLoginEmail').default
 const NewPostEmail = require('../emails/NewPostEmail').default
+const NewCommentEmail = require('../emails/NewCommentEmail').default
 
 class EmailService {
-  constructor () {
+  constructor() {
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -25,7 +26,7 @@ class EmailService {
     })
   }
 
-  async sendVerificationEmail (email, code) {
+  async sendVerificationEmail(email, code) {
     try {
       const emailHtml = await render(
         VerificationEmail({ verificationCode: code })
@@ -65,7 +66,7 @@ class EmailService {
     }
   }
 
-  async sendPasswordResetEmail (email, resetToken) {
+  async sendPasswordResetEmail(email, resetToken) {
     try {
       const emailHtml = await render(ResetPasswordEmail({ resetToken }))
 
@@ -103,7 +104,7 @@ class EmailService {
     }
   }
 
-  async sendPasswordResetCode (email, code) {
+  async sendPasswordResetCode(email, code) {
     try {
       const emailHtml = await render(ResetPasswordEmail({ resetCode: code }))
 
@@ -141,7 +142,7 @@ class EmailService {
     }
   }
 
-  async sendNewLoginEmail (ipAddress, device, location, loginTime, userEmail) {
+  async sendNewLoginEmail(ipAddress, device, location, loginTime, userEmail) {
     try {
       const emailHtml = await render(
         NewLoginEmail({
@@ -187,7 +188,13 @@ class EmailService {
     }
   }
 
-  async sendNewPostEmail(subscriberEmail, authorName, postContent, postId, postPreviewImage) {
+  async sendNewPostEmail(
+    subscriberEmail,
+    authorName,
+    postContent,
+    postId,
+    postPreviewImage
+  ) {
     try {
       const emailHtml = await render(
         NewPostEmail({
@@ -222,6 +229,59 @@ class EmailService {
       return true
     } catch (error) {
       console.error('Error sending new post email:', error)
+      if (error.response) {
+        console.error('SMTP Response:', error.response)
+      }
+      if (error.responseCode) {
+        console.error('SMTP Response Code:', error.responseCode)
+      }
+      return false
+    }
+  }
+
+  async sendNewCommentEmail(
+    to,
+    commenterName,
+    commentText,
+    postId,
+    postAuthorUserName,
+    userEmail
+  ) {
+    try {
+      const emailHtml = await render(
+        NewCommentEmail({
+          commenterName,
+          commentText,
+          postId,
+          postAuthorUserName,
+          userEmail
+        })
+      )
+
+      const mailOptions = {
+        from: {
+          name: 'Zling',
+          address: process.env.SMTP_FROM
+        },
+        to,
+        subject: `Новый комментарий к вашему посту в Zling!`,
+        html: emailHtml,
+        headers: {
+          'X-Mailer': 'Zling Mailer'
+        },
+        dsn: {
+          id: 'new-comment-email',
+          return: 'headers',
+          notify: ['failure', 'delay'],
+          recipient: process.env.SMTP_FROM
+        }
+      }
+
+      const info = await this.transporter.sendMail(mailOptions)
+      console.log('New comment email sent:', info.response)
+      return true
+    } catch (error) {
+      console.error('Error sending new comment email:', error)
       if (error.response) {
         console.error('SMTP Response:', error.response)
       }

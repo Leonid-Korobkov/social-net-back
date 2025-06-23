@@ -15,25 +15,27 @@ import {
   Row
 } from '@react-email/components'
 
-interface NewPostEmailProps {
-  authorName: string
-  postContent: string
+interface NewCommentEmailProps {
+  commenterName: string
+  commentText: string
   postId: number | string
-  postPreviewImage?: string
+  postAuthorUserName: string
+  userEmail: string
 }
 
 const baseUrl = process.env.ORIGIN_URL_PROD || 'https://zling.vercel.app'
 
-export default function NewPostEmail({
-  authorName,
-  postContent,
+export default function NewCommentEmail({
+  commenterName,
+  commentText,
   postId,
-  postPreviewImage
-}: NewPostEmailProps) {
+  postAuthorUserName,
+  userEmail
+}: NewCommentEmailProps) {
   return (
     <Html>
       <Head />
-      <Preview>Новый пост от {authorName} в Zling</Preview>
+      <Preview>Новый комментарий к вашему посту в Zling</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={coverSection}>
@@ -56,33 +58,23 @@ export default function NewPostEmail({
               </Row>
             </Section>
             <Section style={upperSection}>
-              <Heading style={h1}>Новый пост от {authorName}</Heading>
+              <Heading style={h1}>Новый комментарий к вашему посту</Heading>
               <Text style={mainText}>
-                {authorName} только что опубликовал(а) новый пост в Zling:
+                {commenterName} оставил(а) комментарий к вашему посту:
               </Text>
-              {postPreviewImage && (
-                <Section style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <Img
-                    src={postPreviewImage}
-                    alt="Превью поста"
-                    width="320"
-                    style={{ borderRadius: 8 }}
-                  />
-                </Section>
-              )}
-              <Section style={postContentSection}>
-                <Text style={postContentText}>
-                  {postContent.length > 200
-                    ? postContent.slice(0, 200) + '...'
-                    : postContent}
+              <Section style={commentSection}>
+                <Text style={commentTextStyle}>
+                  {commentText.length > 200
+                    ? commentText.slice(0, 200) + '...'
+                    : commentText}
                 </Text>
               </Section>
               <Section style={actionSection}>
                 <Link
-                  href={`${baseUrl}/${authorName}/post/${postId}`}
+                  href={`${baseUrl}/${postAuthorUserName}/post/${postId}`}
                   style={button}
                 >
-                  Читать пост
+                  Посмотреть комментарий
                 </Link>
               </Section>
             </Section>
@@ -148,14 +140,14 @@ const mainText = {
   margin: '0 0 24px'
 }
 
-const postContentSection = {
+const commentSection = {
   backgroundColor: '#f8f9fa',
   borderRadius: '8px',
   padding: '16px',
   margin: '24px 0'
 }
 
-const postContentText = {
+const commentTextStyle = {
   color: '#333333',
   fontSize: '15px',
   lineHeight: '22px',

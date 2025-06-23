@@ -1,7 +1,9 @@
 const { prisma } = require('../prisma/prisma-client')
+const { stripHtml } = require('../utils/stripHtml')
+const emailService = require('../services/email.service')
 
 const CommentController = {
-  async createComment (req, res) {
+  async createComment(req, res) {
     let { content, postId, media } = req.body
     postId = parseInt(postId)
     const userId = req.user.id
@@ -31,14 +33,53 @@ const CommentController = {
         })
       ])
 
-      return res.json({ updatedPost, comment })
+      res.json({ updatedPost, comment })
+
+      // Получаем данные о посте и его авторе
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+        select: {
+          id: true,
+          content: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              userName: true
+            }
+          }
+        }
+      })
+
+      // Не отправляем письмо, если автор сам себе пишет комментарий
+      if (
+        post &&
+        post.author &&
+        post.author.id !== userId &&
+        post.author.email
+      ) {
+        // Получаем данные о комментаторе
+        const commenter = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, userName: true, email: true }
+        })
+        await emailService.sendNewCommentEmail(
+          post.author.email,
+          commenter.userName || commenter.name || 'Пользователь',
+          stripHtml(content),
+          post.id,
+          post.author.userName,
+          post.author.email
+        )
+      }
     } catch (error) {
       console.error('Error in createComment', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
   },
 
-  async deleteComment (req, res) {
+  async deleteComment(req, res) {
     let { id } = req.params
     id = parseInt(id)
     const userId = req.user.id
@@ -75,7 +116,7 @@ const CommentController = {
     }
   },
 
-  async getComments (req, res) {
+  async getComments(req, res) {
     const { postId } = req.params
     const userId = req.user.id
     const page = parseInt(req.query.page)
@@ -110,7 +151,7 @@ const CommentController = {
 
       const commentsWithLikeInfo = comments.map(({ likes, ...comment }) => ({
         ...comment,
-        likedByUser: likes.some(like => like.userId === userId),
+        likedByUser: likes.some((like) => like.userId === userId),
         media: comment.media || []
       }))
 
@@ -129,7 +170,7 @@ const CommentController = {
     }
   },
 
-  async getCommentLikes (req, res) {
+  async getCommentLikes(req, res) {
     const { commentId } = req.params
 
     try {
