@@ -64,13 +64,24 @@ const CommentController = {
           where: { id: userId },
           select: { name: true, userName: true, email: true }
         })
+
+        // Опционально: превью картинки (берём первую из media, если есть)
+        let postPreviewImage = undefined
+        if (Array.isArray(post.media) && post.media.length > 0) {
+          postPreviewImage = post.media[0]
+        } else if (post.imageUrl) {
+          postPreviewImage = post.imageUrl
+        }
+
         await emailService.sendNewCommentEmail(
           post.author.email,
           commenter.userName || commenter.name || 'Пользователь',
           stripHtml(content),
           post.id,
           post.author.userName,
-          post.author.email
+          post.author.email,
+          stripHtml(post.content),
+          optimizeCloudinaryImage(postPreviewImage)
         )
       }
     } catch (error) {

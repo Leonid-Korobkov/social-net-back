@@ -21,6 +21,8 @@ interface NewCommentEmailProps {
   postId: number | string
   postAuthorUserName: string
   userEmail: string
+  postContent: string
+  postPreviewImage?: string
 }
 
 const baseUrl = process.env.ORIGIN_URL_PROD || 'https://zling.vercel.app'
@@ -30,7 +32,9 @@ export default function NewCommentEmail({
   commentText,
   postId,
   postAuthorUserName,
-  userEmail
+  userEmail,
+  postContent,
+  postPreviewImage
 }: NewCommentEmailProps) {
   return (
     <Html>
@@ -67,6 +71,24 @@ export default function NewCommentEmail({
                   {commentText.length > 200
                     ? commentText.slice(0, 200) + '...'
                     : commentText}
+                </Text>
+              </Section>
+              <Text style={mainText}>К вашему посту:</Text>
+              {postPreviewImage && (
+                <Section style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <Img
+                    src={postPreviewImage}
+                    alt="Превью поста"
+                    width="320"
+                    style={{ borderRadius: 8 }}
+                  />
+                </Section>
+              )}
+              <Section style={postContentSection}>
+                <Text style={postContentText}>
+                  {postContent.length > 200
+                    ? postContent.slice(0, 200) + '...'
+                    : postContent}
                 </Text>
               </Section>
               <Section style={actionSection}>
@@ -192,4 +214,18 @@ const footerText = {
   fontSize: '12px',
   textAlign: 'center' as const,
   margin: '24px 0 0'
+}
+
+const postContentSection = {
+  backgroundColor: '#f8f9fa',
+  borderRadius: '8px',
+  padding: '16px',
+  margin: '24px 0'
+}
+
+const postContentText = {
+  color: '#333333',
+  fontSize: '15px',
+  lineHeight: '22px',
+  margin: 0
 }

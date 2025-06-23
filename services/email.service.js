@@ -245,7 +245,9 @@ class EmailService {
     commentText,
     postId,
     postAuthorUserName,
-    userEmail
+    userEmail,
+    postContent,
+    postPreviewImage
   ) {
     try {
       const emailHtml = await render(
@@ -254,7 +256,9 @@ class EmailService {
           commentText,
           postId,
           postAuthorUserName,
-          userEmail
+          userEmail,
+          postContent,
+          postPreviewImage
         })
       )
 
