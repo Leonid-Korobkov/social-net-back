@@ -19,8 +19,6 @@ interface VerificationEmailProps {
   verificationCode?: string
 }
 
-const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-
 export default function VerificationEmail({
   verificationCode
 }: VerificationEmailProps) {

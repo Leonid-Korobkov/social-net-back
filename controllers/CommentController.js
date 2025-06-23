@@ -2,6 +2,7 @@ const { prisma } = require('../prisma/prisma-client')
 const { stripHtml } = require('../utils/stripHtml')
 const { optimizeCloudinaryImage } = require('../utils/cloudinary')
 const emailService = require('../services/email.service')
+const { FRONTEND_URL } = require('../contstants')
 
 const CommentController = {
   async createComment(req, res) {

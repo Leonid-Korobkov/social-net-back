@@ -3,6 +3,7 @@ const cloudinary = require('cloudinary').v2
 const emailService = require('../services/email.service')
 const { stripHtml } = require('../utils/stripHtml')
 const { optimizeCloudinaryImage } = require('../utils/cloudinary')
+const { FRONTEND_URL } = require('../contstants')
 
 const PostController = {
   async createPost(req, res) {

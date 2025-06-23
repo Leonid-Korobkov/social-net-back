@@ -14,6 +14,7 @@ import {
   Column,
   Row
 } from '@react-email/components'
+import { FRONTEND_URL } from '../contstants'
 
 interface NewPostEmailProps {
   authorName: string

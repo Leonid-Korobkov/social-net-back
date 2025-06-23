@@ -14,6 +14,7 @@ import {
   Column,
   Row
 } from '@react-email/components'
+import { FRONTEND_URL } from '../contstants'
 
 interface NewLoginEmailProps {
   ipAddress: string
@@ -22,9 +23,6 @@ interface NewLoginEmailProps {
   loginTime: string
   userEmail: string
 }
-
-const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-
 export default function NewLoginEmail({
   ipAddress,
   device,
@@ -85,13 +83,13 @@ export default function NewLoginEmail({
               <Section style={actionSection}>
                 <Text style={actionText}>
                   1.{' '}
-                  <Link href={`${baseUrl}`} style={link}>
+                  <Link href={`${FRONTEND_URL}`} style={link}>
                     Измените ваш пароль
                   </Link>
                 </Text>
                 <Text style={actionText}>
                   2.{' '}
-                  <Link href={`${baseUrl}`} style={link}>
+                  <Link href={`${FRONTEND_URL}`} style={link}>
                     Просмотрите активные сессии
                   </Link>{' '}
                   и завершите любую подозрительную активность.
