@@ -46,7 +46,6 @@ const CommentController = {
             id: true,
             content: true,
             media: true,
-            imageUrl: true,
             author: {
               select: {
                 id: true,
