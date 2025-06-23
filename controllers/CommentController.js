@@ -42,6 +42,7 @@ const CommentController = {
         select: {
           id: true,
           content: true,
+          media: true,
           author: {
             select: {
               id: true,
