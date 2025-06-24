@@ -6,6 +6,7 @@ const LikeController = {
     let { postId } = req.body
     postId = parseInt(postId)
     const userId = req.user.id
+    const user = req.user
 
     if (!postId) {
       return res.status(400).json({ error: 'Все поля должны быть заполнены' })
@@ -84,15 +85,7 @@ const LikeController = {
             where: { userId: post.author.id }
           })
           const webpush = require('../services/webpush.service')
-          const loginTime = new Date(post.createdAt).toLocaleString('ru-RU', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            timeZone: 'Europe/Moscow'
-          })
+
           for (const sub of pushSubscriptions) {
             try {
               await webpush.sendNotification(
@@ -102,7 +95,7 @@ const LikeController = {
                 },
                 JSON.stringify({
                   title: `@${liker.userName || liker.name || 'Пользователь'} поставил лайк вашему посту!`,
-                  body: `Пользователю @${followerUser.userName} (${followerUser.name}) понравился ваш пост - ${stripHtml(post.content).slice(0, 50)}`,
+                  body: `Пользователю @${liker.userName} (${liker.name}) понравился ваш пост - ${stripHtml(post.content).slice(0, 50)}`,
                   url: `${FRONTEND_URL}/${liker.userName}`,
                   icon:
                     liker.avatarUrl ||
