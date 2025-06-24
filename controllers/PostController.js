@@ -113,7 +113,7 @@ const PostController = {
                   keys: sub.keys
                 },
                 JSON.stringify({
-                  title: `Новый пост от ${post.author.userName || post.author.name}`,
+                  title: `@${post.author.userName || post.author.name} опубликовал новый пост!`,
                   body: stripHtml(post.content).slice(0, 100),
                   url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
                   icon:

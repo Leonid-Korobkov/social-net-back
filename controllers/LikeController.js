@@ -60,7 +60,7 @@ const LikeController = {
             }
           }
         })
-        if (!post || !post.author) return
+        if (!post || !post.author || post.author.id === userId) return
         const liker = await prisma.user.findUnique({
           where: { id: userId },
           select: { name: true, userName: true, avatarUrl: true }
@@ -101,8 +101,8 @@ const LikeController = {
                   keys: sub.keys
                 },
                 JSON.stringify({
-                  title: `Ваш пост понравился!`,
-                  body: `Пользователь ${liker.userName || liker.name} поставил лайк вашему посту от ${loginTime} - ${stripHtml(post.content).slice(0, 50)}`,
+                  title: `@${liker.userName || liker.name || 'Пользователь'} поставил лайк вашему посту!`,
+                  body: `Пользователю @${liker.userName || liker.name} понравился ваш пост - ${stripHtml(post.content).slice(0, 50)}`,
                   url: `${FRONTEND_URL}/${liker.userName}`,
                   icon:
                     liker.avatarUrl ||

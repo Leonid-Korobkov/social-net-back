@@ -106,8 +106,8 @@ const CommentController = {
                   keys: sub.keys
                 },
                 JSON.stringify({
-                  title: `Новый комментарий к вашему посту!`,
-                  body: `${commenter.userName || commenter.name || 'Пользователь'}: ${stripHtml(content).slice(0, 100)}`,
+                  title: `@${commenter.userName || commenter.name || 'Пользователь'} оставил комментарий к вашему посту!`,
+                  body: `Пользователь @${commenter.userName || commenter.name || 'Пользователь'}: ${stripHtml(content).slice(0, 100)}`,
                   url: `${FRONTEND_URL}/${post.author.userName}/post/${post.id}`,
                   icon:
                     commenter.avatarUrl ||
