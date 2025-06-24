@@ -7,6 +7,7 @@ const fs = require('fs')
 const cors = require('cors')
 const http = require('http')
 require('dotenv').config()
+const { startPingPong } = require('./utils/pingpong')
 
 const app = express()
 const server = http.createServer(app)
@@ -81,6 +82,7 @@ server.listen(port, () => {
   // Запускаем задачу cron после старта сервера
   try {
     startScoreRecalculationCron()
+    startPingPong()
   } catch (error) {
     console.error('Ошибка при запуске cron задачи:', error)
   }
