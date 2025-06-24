@@ -524,9 +524,9 @@ const PostController = {
                   keys: sub.keys
                 },
                 JSON.stringify({
-                  title: `Ваш пост репостнули!`,
-                  body: `Пользователь ${reposter.userName || reposter.name} сделал репост вашего поста`,
-                  url: `/user/${reposter.userName}`,
+                  title: `Новый репост вашего поста!`,
+                  body: `Пользователь @${followerUser.userName} (${followerUser.name}) сделал репост вашего поста`,
+                  url: `${FRONTEND_URL}/${reposter.userName}`,
                   icon:
                     reposter.avatarUrl ||
                     'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'

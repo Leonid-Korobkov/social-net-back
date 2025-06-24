@@ -102,7 +102,7 @@ const LikeController = {
                 },
                 JSON.stringify({
                   title: `@${liker.userName || liker.name || 'Пользователь'} поставил лайк вашему посту!`,
-                  body: `Пользователю @${liker.userName || liker.name} понравился ваш пост - ${stripHtml(post.content).slice(0, 50)}`,
+                  body: `Пользователю @${followerUser.userName} (${followerUser.name}) понравился ваш пост - ${stripHtml(post.content).slice(0, 50)}`,
                   url: `${FRONTEND_URL}/${liker.userName}`,
                   icon:
                     liker.avatarUrl ||
@@ -181,9 +181,7 @@ const LikeController = {
                 }
               },
               _count: {
-                select: {
-                  followers: true
-                }
+                select: { followers: true, following: true }
               }
             }
           }

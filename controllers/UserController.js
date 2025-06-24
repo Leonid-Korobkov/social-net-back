@@ -419,7 +419,7 @@ const UserController = {
               },
               JSON.stringify({
                 title: `Вход в аккаунт Zling`,
-                body: `Выполнен вход с устройства: ${session.device} (${session.browser}, ${session.os}): ${session.location.city} ${session.location.region1} ${session.location.country}`,
+                body: `Выполнен вход с устройства: ${session.device} (${session.browser}, ${session.os}): ${session.location.city}, ${session.location.region1}, ${session.location.country}`,
                 url: '/',
                 icon:
                   session.user.avatarUrl ||
@@ -618,7 +618,7 @@ const UserController = {
                       userName: true,
                       avatarUrl: true,
                       _count: {
-                        select: { followers: true }
+                        select: { followers: true, following: true }
                       }
                     }
                   }
@@ -633,7 +633,7 @@ const UserController = {
                       userName: true,
                       avatarUrl: true,
                       _count: {
-                        select: { followers: true }
+                        select: { followers: true, following: true }
                       }
                     }
                   }
@@ -641,9 +641,7 @@ const UserController = {
               },
               posts: false,
               _count: {
-                select: {
-                  followers: true
-                }
+                select: { followers: true, following: true }
               }
             }
           }),

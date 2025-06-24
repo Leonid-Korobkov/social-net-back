@@ -61,9 +61,7 @@ const FollowController = {
             where: { id: followingId },
             select: {
               _count: {
-                select: {
-                  followers: true
-                }
+                select: { followers: true, following: true }
               },
               email: true,
               enablePushNotifications: true,
@@ -105,7 +103,7 @@ const FollowController = {
                 },
                 JSON.stringify({
                   title: `Новый подписчик!`,
-                  body: `Пользователь @${followerUser.userName || followerUser.name} подписался на вас. Теперь у вас ${followedUser._count.followers} подписчиков`,
+                  body: `Пользователь @${followerUser.userName} (${followerUser.name}) подписался на вас. Теперь у вас ${followedUser._count.followers} подписчиков`,
                   url: `${FRONTEND_URL}/${followerUser.userName}`,
                   icon:
                     followerUser.avatarUrl ||
