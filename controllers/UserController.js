@@ -101,7 +101,8 @@ const createSession = async (user, req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'none',
-    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней в миллисекундах
+    // maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней в миллисекундах
+    maxAge: 100 * 365 * 24 * 60 * 60 * 1000 // 100 лет
   })
 
   await prisma.authLog.create({
