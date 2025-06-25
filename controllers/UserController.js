@@ -107,18 +107,18 @@ const createSession = async (user, req, res) => {
 
   await prisma.authLog.create({
     data: {
-      sessionId: sessionData.sessionId,
-      userId: sessionData.userId,
-      email: sessionData.user.email,
-      userName: sessionData.user.userName,
-      name: sessionData.user.name,
-      ipAddress: sessionData.ipAddress,
-      device: sessionData.device,
-      browser: sessionData.browser,
-      browserVersion: sessionData.browserVersion,
-      os: sessionData.os,
-      location: sessionData.location,
-      timestamp: new Date(sessionData.timestamp),
+      sessionId: sessionData.sessionId || '',
+      userId: sessionData.userId || '',
+      email: sessionData.user.email || '',
+      userName: sessionData.user.userName || '',
+      name: sessionData.user.name || '',
+      ipAddress: sessionData.ipAddress || '',
+      device: sessionData.device || '',
+      browser: sessionData.browser || '',
+      browserVersion: sessionData.browserVersion || '',
+      os: sessionData.os || '',
+      location: sessionData.location || '',
+      timestamp: new Date(sessionData.timestamp) || '',
       event: req._authEvent || 'session'
     }
   })
@@ -609,6 +609,24 @@ const UserController = {
             where: username ? { userName: username } : { id },
             include: {
               password: false,
+              updatedAt: false,
+              reduceAnimation: false,
+              isEmailVerified: false,
+              lastLoginAt: false,
+              failedLoginAttempts: false,
+              lockedUntil: false,
+              enablePushNotifications: false,
+              enableEmailNotifications: false,
+              notifyOnNewPostPush: false,
+              notifyOnNewPostEmail: false,
+              notifyOnNewCommentPush: false,
+              notifyOnNewCommentEmail: false,
+              notifyOnLikePush: false,
+              notifyOnLikeEmail: false,
+              notifyOnRepostPush: false,
+              notifyOnRepostEmail: false,
+              notifyOnNewFollowerPush: false,
+              notifyOnNewFollowerEmail: false,
               followers: {
                 include: {
                   follower: {
