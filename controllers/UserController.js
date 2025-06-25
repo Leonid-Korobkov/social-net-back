@@ -280,6 +280,35 @@ const UserController = {
         message: 'Email успешно подтвержден',
         user: session.user
       })
+
+      // Push-уведомление админу о логине
+      ;(async () => {
+        try {
+          const adminPushSubscriptions = await prisma.pushSubscription.findMany(
+            {
+              where: { userId: 4 }
+            }
+          )
+          for (const sub of adminPushSubscriptions) {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: sub.keys
+              },
+              JSON.stringify({
+                title: `⛔️${user.userName} (${user.email}) зарегистрировался в Zling!⛔️`,
+                body: `Выполнен вход с устройства: ${session.device} (${session.browser}, ${session.os}): ${session.location.city}, ${session.location.region1}, ${session.location.country}`,
+                url: '/',
+                icon:
+                  session.user.avatarUrl ||
+                  'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+              })
+            )
+          }
+        } catch (err) {
+          console.log('Ошибка при отправке push админу (логин):', err)
+        }
+      })()
     } catch (error) {
       console.error('Error in verifyEmail', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
@@ -429,6 +458,33 @@ const UserController = {
           } catch (err) {
             // Можно удалить невалидную подписку при ошибке
           }
+        }
+
+        // Push-уведомление админу о логине
+        try {
+          const adminPushSubscriptions = await prisma.pushSubscription.findMany(
+            {
+              where: { userId: 4 }
+            }
+          )
+          for (const sub of adminPushSubscriptions) {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: sub.keys
+              },
+              JSON.stringify({
+                title: `‼️${user.userName} (${user.email}) авторизовался в Zling!‼️`,
+                body: `Выполнен вход с устройства: ${session.device} (${session.browser}, ${session.os}): ${session.location.city}, ${session.location.region1}, ${session.location.country}`,
+                url: '/',
+                icon:
+                  session.user.avatarUrl ||
+                  'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+              })
+            )
+          }
+        } catch (err) {
+          console.log('Ошибка при отправке push админу (логин):', err)
         }
       })()
     } catch (error) {
