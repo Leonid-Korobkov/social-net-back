@@ -1,4 +1,5 @@
 const { prisma } = require('../prisma/prisma-client')
+const fetchOpenGraphData = require('../utils/opengraph')
 
 const OpenGraphController = {
   async getPostData(req, res) {
@@ -21,7 +22,7 @@ const OpenGraphController = {
               id: true,
               name: true,
               userName: true,
-              avatarUrl: true,
+              avatarUrl: true
             }
           }
         }
@@ -36,6 +37,47 @@ const OpenGraphController = {
       console.error('Error in getPostData for OpenGraph', error)
       return res.status(500).json({ error: 'Что-то пошло не так на сервере' })
     }
+  },
+
+  async getLinkPreview(req, res) {
+    const { url, postId } = req.body
+    if (!url) {
+      return res.status(400).json({ error: 'No url provided' })
+    }
+
+    if (postId) {
+      const post = await prisma.post.findUnique({
+        where: { id: Number(postId) }
+      })
+      if (post) {
+        if (post.ogImageUrl || post.ogTitle || post.ogDescr || post.ogUrl) {
+          return res.json({
+            ogImageUrl: post.ogImageUrl,
+            ogTitle: post.ogTitle,
+            ogDescr: post.ogDescr,
+            ogUrl: post.ogUrl
+          })
+        }
+      }
+      const ogData = await fetchOpenGraphData(url)
+      if (ogData) {
+        await prisma.post.update({
+          where: { id: Number(postId) },
+          data: {
+            ogImageUrl: ogData.ogImageUrl,
+            ogTitle: ogData.ogTitle,
+            ogDescr: ogData.ogDescr,
+            ogUrl: ogData.ogUrl
+          }
+        })
+        return res.json(ogData)
+      }
+      return res.status(404).json({ error: 'No OpenGraph data found' })
+    }
+
+    const ogData = await fetchOpenGraphData(url)
+    if (ogData) return res.json(ogData)
+    return res.status(404).json({ error: 'No OpenGraph data found' })
   },
 
   async getUserData(req, res) {
@@ -95,8 +137,8 @@ const OpenGraphController = {
       const formattedUser = {
         ...user,
         bio: user.showBio ? user.bio : null,
-        followers: user.followers.map(f => f.follower),
-        following: user.following.map(f => f.following),
+        followers: user.followers.map((f) => f.follower),
+        following: user.following.map((f) => f.following),
         stats: {
           followers: user._count.followers,
           following: user._count.following,
@@ -115,4 +157,4 @@ const OpenGraphController = {
   }
 }
 
-module.exports = OpenGraphController 
+module.exports = OpenGraphController

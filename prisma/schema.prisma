@@ -89,6 +89,10 @@ model Post {
   idEdited       Boolean     @default(false)
   score          Int         @default(0)
   updatedScoreAt DateTime    @default(now())
+  ogImageUrl     String?
+  ogTitle        String?
+  ogDescr        String?
+  ogUrl          String?
 
   @@index([authorId])
   @@index([createdAt])

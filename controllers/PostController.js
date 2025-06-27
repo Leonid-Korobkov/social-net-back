@@ -4,6 +4,8 @@ const emailService = require('../services/email.service')
 const { stripHtml } = require('../utils/stripHtml')
 const { optimizeCloudinaryImage } = require('../utils/cloudinary')
 const { FRONTEND_URL } = require('../contstants')
+const extractFirstLink = require('../utils/extractFirstLink')
+const fetchOpenGraphData = require('../utils/opengraph')
 
 const PostController = {
   async createPost(req, res) {
@@ -14,12 +16,23 @@ const PostController = {
       // Убедимся, что media является массивом
       const mediaArray = Array.isArray(media) ? media : []
 
+      // Извлекаем первую ссылку и получаем OG-данные
+      let ogData = {}
+      const firstLink = extractFirstLink(content)
+      if (firstLink) {
+        ogData = (await fetchOpenGraphData(firstLink)) || {}
+      }
+
       const post = await prisma.post.create({
         data: {
           content,
           authorId: userId,
           media: mediaArray, // Гарантированно передаем массив
-          imageUrl: req.file?.cloudinaryUrl || undefined
+          imageUrl: req.file?.cloudinaryUrl || undefined,
+          ogImageUrl: ogData.ogImageUrl || null,
+          ogTitle: ogData.ogTitle || null,
+          ogDescr: ogData.ogDescr || null,
+          ogUrl: ogData.ogUrl || null
         },
         select: {
           id: true,
@@ -32,6 +45,10 @@ const PostController = {
           title: true,
           viewCount: true,
           media: true, // Выбираем media из созданного поста
+          ogImageUrl: true,
+          ogTitle: true,
+          ogDescr: true,
+          ogUrl: true,
           author: {
             select: {
               id: true,

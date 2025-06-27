@@ -25,7 +25,9 @@ export default function VerificationEmail({
   return (
     <Html>
       <Head />
-      <Preview>Подтверждение email в Zling</Preview>
+      <Preview>
+        Подтверждение email в Zling. Ваш код: {verificationCode ?? ''}
+      </Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={coverSection}>
