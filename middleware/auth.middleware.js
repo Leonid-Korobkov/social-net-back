@@ -45,16 +45,6 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: 'Недействительная сессия' })
     }
 
-    // Проверяем, не истек ли срок действия сессии
-    const lastActivity = new Date(session.lastActivity)
-    const now = new Date()
-    const sessionTimeout = 24 * 60 * 60 * 1000 // 24 часа
-
-    if (now - lastActivity > sessionTimeout) {
-      await redisService.deleteSession(sessionId)
-      return res.status(401).json({ message: 'Сессия истекла' })
-    }
-
     // Обновляем время последней активности
     await redisService.updateSessionActivity(sessionId)
 
