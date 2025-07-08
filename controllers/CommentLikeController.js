@@ -1,7 +1,7 @@
 const { prisma } = require('../prisma/prisma-client')
 
 const CommentLikeController = {
-  async toggleLike (req, res) {
+  async toggleLike(req, res) {
     const commentId = parseInt(req.params.commentId)
     const userId = req.user.id
 
@@ -44,7 +44,74 @@ const CommentLikeController = {
             select: { likeCount: true }
           })
         ])
-        return res.json({ message: 'Лайк добавлен' })
+        res.json({ message: 'Лайк добавлен' })
+
+        // Push-уведомление автору комментария
+        ;(async () => {
+          // Получаем автора комментария и лайкнувшего
+          const commentWithAuthor = await prisma.comment.findUnique({
+            where: { id: commentId },
+            select: {
+              content: true,
+              userId: true,
+              postId: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  userName: true,
+                  avatarUrl: true,
+                  enablePushNotifications: true,
+                  notifyOnCommentLikePush: true
+                }
+              }
+            }
+          })
+          if (
+            !commentWithAuthor ||
+            !commentWithAuthor.user ||
+            commentWithAuthor.user.id === userId
+          )
+            return
+          const liker = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, userName: true, avatarUrl: true }
+          })
+          const { FRONTEND_URL } = require('../contstants')
+          if (
+            commentWithAuthor.user.enablePushNotifications &&
+            commentWithAuthor.user.notifyOnCommentLikePush
+          ) {
+            const pushSubscriptions = await prisma.pushSubscription.findMany({
+              where: { userId: commentWithAuthor.user.id }
+            })
+            const webpush = require('../services/webpush.service')
+            for (const sub of pushSubscriptions) {
+              try {
+                await webpush.sendNotification(
+                  {
+                    endpoint: sub.endpoint,
+                    keys: sub.keys
+                  },
+                  JSON.stringify({
+                    title: `@${liker.userName || liker.name || 'Пользователь'} лайкнул ваш комментарий!`,
+                    body: `Пользователю @${liker.userName} (${liker.name}) понравился ваш комментарий: ${commentWithAuthor.content.slice(0, 50)}`,
+                    url: `${FRONTEND_URL}/${liker.userName}/post/${commentWithAuthor.postId}`,
+                    icon:
+                      liker.avatarUrl ||
+                      'https://res.cloudinary.com/djsmqdror/image/upload/v1750155232/pvqgftwlzvt6p24auk7u.png'
+                  })
+                )
+              } catch (err) {
+                console.log(
+                  'Ошибка при отправке пуша на лайк комментария: ',
+                  err
+                )
+              }
+            }
+          }
+        })()
+        return
       }
     } catch (error) {
       console.error('Error in toggleCommentLike:', error)
@@ -52,7 +119,7 @@ const CommentLikeController = {
     }
   },
 
-  async getLikes (req, res) {
+  async getLikes(req, res) {
     const { commentId } = req.params
 
     try {

@@ -54,6 +54,8 @@ model User {
   notifyOnRepostEmail      Boolean @default(true)
   notifyOnNewFollowerPush  Boolean @default(true)
   notifyOnNewFollowerEmail Boolean @default(true)
+  notifyOnCommentLikePush  Boolean @default(true)
+  notifyOnCommentLikeEmail Boolean @default(true)
 
   @@index([email])
   @@index([name])
