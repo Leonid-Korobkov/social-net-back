@@ -839,7 +839,9 @@ const UserController = {
         notifyOnRepostPush,
         notifyOnRepostEmail,
         notifyOnNewFollowerPush,
-        notifyOnNewFollowerEmail
+        notifyOnNewFollowerEmail,
+        notifyOnCommentLikePush,
+        notifyOnCommentLikeEmail
       } = req.body
 
       const updatedUser = await prisma.user.update({
@@ -897,6 +899,14 @@ const UserController = {
           notifyOnNewFollowerEmail:
             notifyOnNewFollowerEmail !== undefined
               ? Boolean(notifyOnNewFollowerEmail)
+              : undefined,
+          notifyOnCommentLikePush:
+            notifyOnCommentLikePush !== undefined
+              ? Boolean(notifyOnCommentLikePush)
+              : undefined,
+          notifyOnCommentLikeEmail:
+            notifyOnCommentLikeEmail !== undefined
+              ? Boolean(notifyOnCommentLikeEmail)
               : undefined
         }
       })
