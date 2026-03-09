@@ -4,26 +4,22 @@ FROM node:19.5.0-alpine
 # Указываем нашу рабочую дерикторию
 WORKDIR /app
 
-# Копируем package.json и package-lock.json внутрь контейнера
-COPY package*.json ./
-
-# Устанавливаем зависимости
-RUN npm install
+# Копируем package файлы и устанавливаем все зависимости для сборки
+COPY package.json package-lock.json ./
+RUN npm ci && npm cache clean --force
 
 # Копируем оставшееся приложение в контейнер
 COPY . .
 
-# Устанавливаем Prisma
-RUN npm install -g prisma
+ARG DATABASE_URL="postgresql://user:pass@localhost:5432/db?schema=public"
+ENV DATABASE_URL=${DATABASE_URL}
 
-# Генерируем Prisma client
-RUN prisma generate
-
-# Копируем Prisma schema и URL базы данных в контейнер
-COPY prisma/schema.prisma ./prisma/
+# Генерируем Prisma клиент
+RUN npx prisma generate
 
 # Открываем порт 3000 в нашем контейнере
 EXPOSE 3000
 
 # Запускаем сервер
 CMD [ "npm", "start" ]
+
