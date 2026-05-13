@@ -9,8 +9,14 @@ const NewCommentEmail = require('../emails/NewCommentEmail').default
 
 class EmailService {
   constructor() {
+    // Configure transporter using explicit host/port settings from environment.
+    // Using the generic "service: 'gmail'" option can cause connection issues in
+    // hosted environments (e.g., Render) where TLS negotiation differs.
+    // We now respect SMTP_HOST, SMTP_PORT and SMTP_SECURE variables.
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
